@@ -74,6 +74,15 @@ select,input{border:1px solid var(--line);background:var(--panel);border-radius:
 .sheet{position:fixed;inset:0;background:#0008;display:grid;place-items:center;z-index:9;padding:16px}
 .sheet .box{width:min(360px,100%)}
 .pin{font-size:26px;letter-spacing:8px;text-align:center;width:100%}
+.camview{position:fixed;inset:0;background:#000;z-index:8}
+.camview video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.frame{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);height:min(64vh,calc(84vw * 88 / 63));aspect-ratio:63/88;
+  border:3px solid #fff;border-radius:14px;box-shadow:0 0 0 100vmax #0009}
+.frame span{position:absolute;left:0;right:0;bottom:-34px;text-align:center;color:#fff;font-size:14px}
+.camBar{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;
+  padding:16px max(20px,env(safe-area-inset-left)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-right))}
+.camBar button{background:#0008;color:#fff;border-color:#fff4;width:90px}
+.camBar .shoot{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid #fff8;padding:0}
 [hidden]{display:none!important}
 .trader{display:none}
 body.handler .trader{display:revert}
@@ -89,9 +98,15 @@ body.handler .trader{display:revert}
   </div>
 </header>
 
-<label class="cam" id="camBtn"><input type="file" accept="image/*" capture="environment" id="foto"><span id="camTxt">📷 Karte fotografieren</span></label>
-<div class="hint">Karte flach und gerade fotografieren, die Nummer unten links (z. B. 4/102) muss scharf sein.
-  Sprache oben auf die Kartensprache stellen.</div>
+<button class="cam" id="camBtn" type="button"><span id="camTxt">📷 Karte scannen</span></button>
+<div class="hint">Karte in den Rahmen halten, bis sie ihn ausfüllt, dann auslösen. Sprache oben auf die Kartensprache stellen.
+  <label style="color:var(--accent);cursor:pointer">Oder Foto aus der Mediathek<input type="file" accept="image/*" id="foto" hidden></label>
+  (Karte dafür vorher eng zuschneiden).</div>
+<div class="camview" id="camView" hidden>
+  <video id="video" playsinline muted autoplay></video>
+  <div class="frame" id="frame"><span>Karte hier hinein · Nummer muss scharf sein</span></div>
+  <div class="camBar"><button id="camClose" type="button">Abbrechen</button><button class="shoot" id="shoot" type="button" aria-label="Auslösen"></button><span style="width:90px"></span></div>
+</div>
 
 <div class="box">
   <div class="manual">
@@ -195,20 +210,48 @@ function marketOf(card, better) {
 
 // ---------- Texterkennung ----------
 let worker = null;
-async function ocr(file) {
-  const img = await createImageBitmap(file);
-  const scale = Math.min(1, 1800 / Math.max(img.width, img.height));
-  const cv = document.createElement('canvas'); cv.width = img.width * scale; cv.height = img.height * scale;
-  cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+async function getWorker() {
   if (!worker) { status('Texterkennung wird geladen (nur beim ersten Mal) …'); worker = await Tesseract.createWorker(['eng', 'deu']); }
-  status('Lese die Karte …');
-  const full = (await worker.recognize(cv)).data.text;
-  // unteres Fünftel vergrößert nochmal lesen – dort steht die Nummer
-  const b = document.createElement('canvas'), h = cv.height * .22;
-  b.width = cv.width * 2; b.height = h * 2;
-  const bx = b.getContext('2d'); bx.imageSmoothingEnabled = true; bx.drawImage(cv, 0, cv.height - h, cv.width, h, 0, 0, b.width, b.height);
-  const bottom = (await worker.recognize(b)).data.text;
-  return {text: full + '\n' + bottom, url: cv.toDataURL('image/jpeg', .8)};
+  return worker;
+}
+// Ausschnitt der Karte (Anteile 0..1) vergrößert, grau und kontrastreich -> bessere Erkennung kleiner Schrift
+function strip(card, x, y, w, h, scale = 3) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(card.width * w * scale); c.height = Math.round(card.height * h * scale);
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = true;
+  g.drawImage(card, card.width * x, card.height * y, card.width * w, card.height * h, 0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+  let sum = 0; for (let i = 0; i < p.length; i += 4) sum += p[i] * .3 + p[i + 1] * .59 + p[i + 2] * .11;
+  const avg = sum / (p.length / 4);
+  for (let i = 0; i < p.length; i += 4) {
+    const v = p[i] * .3 + p[i + 1] * .59 + p[i + 2] * .11, o = Math.max(0, Math.min(255, (v - avg) * 2.2 + 140));
+    p[i] = p[i + 1] = p[i + 2] = o;
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
+async function readCard(card) {
+  const w = await getWorker();
+  status('Lese Nummer …');
+  await w.setParameters({tessedit_char_whitelist: '0123456789/', tessedit_pageseg_mode: '11'});
+  let numText = '';
+  for (const [x, y, ww, hh] of [[0, .88, .55, .12], [.45, .88, .55, .12], [0, .84, 1, .16]]) {   // links unten, rechts unten (alte Karten), ganze Fußzeile
+    numText += '\n' + (await w.recognize(strip(card, x, y, ww, hh))).data.text;
+    if (numbers(numText).length) break;
+  }
+  status('Lese Namen …');
+  await w.setParameters({tessedit_char_whitelist: '', tessedit_pageseg_mode: '7'});
+  const nameText = (await w.recognize(strip(card, .05, .025, .7, .085, 2))).data.text;
+  const name = (nameText.match(/[A-Za-zÄÖÜäöüß'.\- ]{3,}/g) || []).map(s => s.trim())
+    .filter(s => !/^(basis|basic|phase|stage|stufe|kp|hp)$/i.test(s)).sort((a, b) => b.length - a.length)[0] || '';
+  return {numText, name: name.replace(/\b(Basis|Basic|Phase \d|Stage \d|KP|HP)\b/gi, '').trim()};
+}
+function cardFromFile(file) {
+  return createImageBitmap(file).then(img => {
+    const s = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s;
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c;
+  });
 }
 function numbers(text) {
   const out = [];
@@ -272,19 +315,43 @@ let clearArmed = false;
 $('#clear').onclick = () => { if (!clearArmed) { clearArmed = true; $('#clear').textContent = 'wirklich leeren?'; setTimeout(() => { clearArmed = false; $('#clear').textContent = 'leeren'; }, 3000); return; }
   list = []; store.set('list', list); drawList(); };
 
-$('#foto').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  $('#camTxt').innerHTML = '<span class="spin"></span>&nbsp;Erkenne Karte …'; $('#foto').disabled = true;
+async function recognize(card) {
+  $('#camTxt').innerHTML = '<span class="spin"></span>&nbsp;Erkenne Karte …'; $('#camBtn').disabled = true;
   try {
-    const {text, url} = await ocr(f); state.photo = url;
-    const nums = numbers(text), lang = $('#lang').value;
+    state.photo = card.toDataURL('image/jpeg', .8);
+    const {numText, name} = await readCard(card), lang = $('#lang').value;
+    const nums = numbers(numText);
     let cands = [];
-    for (const [n, t] of nums) { cands = await byNumber(lang, n, t, text); if (cands.length) break; }
-    if (nums[0]) $('#qNum').value = nums[0].join('/');
-    status(cands.length ? `Nummer ${nums[0].join('/')} gelesen` : (nums.length ? `Nummer ${nums[0].join('/')} gelesen, aber keine Karte gefunden` : 'Keine Nummer lesbar – Name/Nummer eintippen'));
+    for (const [n, t] of nums) { cands = await byNumber(lang, n, t, name); if (cands.length) break; }
+    if (!cands.length && name.length >= 3) cands = await byName(lang, name, nums[0] ? nums[0][0] : '');
+    $('#qNum').value = nums[0] ? nums[0].join('/') : ''; $('#qName').value = name;
+    status(`Gelesen: ${nums[0] ? 'Nr. ' + nums[0].join('/') : 'keine Nummer'}${name ? ' · „' + name + '“' : ''}` +
+      (cands.length ? '' : ' – nichts gefunden, oben korrigieren und „Suchen“'));
     await show(cands, 'Nicht erkannt – Name und Nummer oben eintippen und „Suchen“.');
   } catch (err) { status('Fehler: ' + err.message); }
-  $('#camTxt').textContent = '📷 Nächste Karte fotografieren'; $('#foto').disabled = false; e.target.value = '';
+  $('#camTxt').textContent = '📷 Nächste Karte scannen'; $('#camBtn').disabled = false;
+}
+$('#foto').onchange = async e => { const f = e.target.files[0]; if (f) await recognize(await cardFromFile(f)); e.target.value = ''; };
+// ---------- Kamera mit Kartenrahmen ----------
+let stream = null;
+async function openCam() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'environment', width: {ideal: 1920}, height: {ideal: 1080}}, audio: false});
+  } catch (e) { status('Kamera nicht verfügbar (' + e.name + ') – Foto aus der Mediathek wählen.'); $('#foto').click(); return; }
+  $('#video').srcObject = stream; $('#camView').hidden = false;
+}
+function closeCam() { $('#camView').hidden = true; if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; }
+$('#camBtn').onclick = openCam;
+$('#camClose').onclick = closeCam;
+$('#shoot').onclick = () => {
+  const v = $('#video'), fr = $('#frame').getBoundingClientRect(), vr = v.getBoundingClientRect();
+  // sichtbarer Ausschnitt (object-fit: cover) -> Videopixel
+  const s = Math.max(vr.width / v.videoWidth, vr.height / v.videoHeight);
+  const ox = (v.videoWidth * s - vr.width) / 2, oy = (v.videoHeight * s - vr.height) / 2;
+  const sx = (fr.left - vr.left + ox) / s, sy = (fr.top - vr.top + oy) / s, sw = fr.width / s, sh = fr.height / s;
+  const c = document.createElement('canvas'); c.width = 630 * 2; c.height = 880 * 2;
+  c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  closeCam(); recognize(c);
 };
 async function manual() {
   const name = $('#qName').value.trim(), nr = $('#qNum').value.trim(), lang = $('#lang').value;
