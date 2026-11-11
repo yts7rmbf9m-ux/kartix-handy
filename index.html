@@ -444,10 +444,16 @@ async function loadIndex(force) {
   } catch (e) { vxInfo('Bild-Datenbank nicht verfügbar'); return false; }
 }
 function vxInfo(t) { const el = $('#vxInfo'); if (el) el.textContent = t; }
+// mehrere leicht verschobene/gezoomte Ausschnitte -> verzeiht ungenaues Ausschneiden
 function cardSig(card) {
-  const c = document.createElement('canvas'); c.width = 245; c.height = 342;
-  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(card, 0, 0, 245, 342);
-  return vsig(g.getImageData(0, 0, 245, 342).data, 245, 342, 4);
+  const out = [], W = card.width, H = card.height;
+  for (const [dx, dy, z] of [[0, 0, 1], [.025, 0, 1], [-.025, 0, 1], [0, .02, 1], [0, -.02, 1], [0, 0, .95], [0, 0, 1.05]]) {
+    const c = document.createElement('canvas'); c.width = 245; c.height = 342;
+    const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.fillStyle = '#888'; g.fillRect(0, 0, 245, 342);
+    const sw = W * z, sh = H * z; g.drawImage(card, (W - sw) / 2 + dx * W, (H - sh) / 2 + dy * H, sw, sh, 0, 0, 245, 342);
+    out.push(vsig(g.getImageData(0, 0, 245, 342).data, 245, 342, 4));
+  }
+  return out;
 }
 // ähnlichste Karten der ganzen Datenbank (dauert ~30 ms)
 function visualSearch(me, k = 40) {
@@ -455,7 +461,7 @@ function visualSearch(me, k = 40) {
   const n = VX.meta.n, L = VX.meta.len, top = [];
   let min = -9;
   for (let i = 0; i < n; i++) {
-    const v = vsim(VX.sig, i * L, me, 0);
+    let v = -9; for (const q of me) { const x = vsim(VX.sig, i * L, q, 0); if (x > v) v = x; }
     if (top.length < k || v > min) { top.push([v, i]); if (top.length > k) { top.sort((a, b) => b[0] - a[0]); top.length = k; min = top[k - 1][0]; } }
   }
   top.sort((a, b) => b[0] - a[0]);
@@ -538,7 +544,7 @@ function cardFromFile(file) {
   });
 }
 // Karte im Foto finden (Karte hat viel Detail, Tisch/Hintergrund wenig) und gerade auf 1260×1760 ausschneiden
-function findCard(src) {
+function findCards(src) {
   const W = 240, H = Math.round(src.height * W / src.width), c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'); g.drawImage(src, 0, 0, W, H);
   const d = g.getImageData(0, 0, W, H).data, gr = new Float32Array(W * H);
@@ -561,20 +567,23 @@ function findCard(src) {
         if (nx >= 0 && ny >= 0 && nx < cw && ny < ch && on[nk] && !lab[nk]) { lab[nk] = id; st.push(nk); } } }
     if (!best || n > best.n) best = {n, x0, y0, x1, y1};
   }
-  const sx = src.width / W, sy = src.height / H;
-  let bx = 0, by = 0, bw = src.width, bh = src.height;
+  // mehrere Vermutungen, wo die Karte liegt -> die Bildsuche entscheidet, welche am besten passt
+  const sx = src.width / W, sy = src.height / H, boxes = [];
+  const fit = (x, y, w, h) => { const cx = x + w / 2, cy = y + h / 2; if (w / h > 63 / 88) h = w * 88 / 63; else w = h * 63 / 88; return [cx - w / 2, cy - h / 2, w, h]; };
+  const inner = (x, y, w, h) => { const cx = x + w / 2, cy = y + h / 2; if (w / h > 63 / 88) w = h * 63 / 88; else h = w * 88 / 63; return [cx - w / 2, cy - h / 2, w, h]; };
+  boxes.push(inner(0, 0, W, H));                                   // Karte füllt das Bild (Kamera-Rahmen)
+  const r0 = refineEdges(gr, W, H, W * .04, H * .04, W * .92, H * .92); boxes.push([r0.x, r0.y, r0.w, r0.h]);
   if (best && best.n > 12) {
-    bx = best.x0 * B * sx; by = best.y0 * B * sy; bw = (best.x1 - best.x0 + 1) * B * sx; bh = (best.y1 - best.y0 + 1) * B * sy;
-    if (bw * bh > src.width * src.height * .7) { bx = 0; by = 0; bw = src.width; bh = src.height; }   // Karte füllt schon das Bild
-    else {   // Kanten der Karte genau suchen: stärkste gerade Kante nahe jeder Seite
-      const r = refineEdges(gr, W, H, bx / sx, by / sy, bw / sx, bh / sy);
-      bx = r.x * sx; by = r.y * sy; bw = r.w * sx; bh = r.h * sy;
-    }
+    const x = best.x0 * B, y = best.y0 * B, w = (best.x1 - best.x0 + 1) * B, h = (best.y1 - best.y0 + 1) * B;
+    boxes.push(fit(x, y, w * 1.04, h * 1.03));
+    const r = refineEdges(gr, W, H, x, y, w, h); boxes.push([r.x, r.y, r.w, r.h]);
   }
-  const out = document.createElement('canvas'); out.width = 1260; out.height = 1760;
-  const o = out.getContext('2d'); o.fillStyle = '#888'; o.fillRect(0, 0, 1260, 1760);
-  o.drawImage(src, bx, by, bw, bh, 0, 0, 1260, 1760);
-  return out;
+  return boxes.map(([x, y, w, h]) => {
+    const out = document.createElement('canvas'); out.width = 1260; out.height = 1760;
+    const o = out.getContext('2d'); o.fillStyle = '#888'; o.fillRect(0, 0, 1260, 1760);
+    o.drawImage(src, x * sx, y * sy, w * sx, h * sy, 0, 0, 1260, 1760);
+    return out;
+  });
 }
 function refineEdges(gr, W, H, x, y, w, h) {
   const at = (X, Y) => gr[Math.max(0, Math.min(H - 1, Y)) * W + Math.max(0, Math.min(W - 1, X))];
@@ -667,15 +676,22 @@ async function recognize(card) {
   if (busy) return; busy = true;
   $('#shoot').innerHTML = '<span class="spin" style="border-top-color:#333;border-color:#0002"></span>';
   try {
-    card = findCard(card);
+    // 1. Karte im Bild finden und mit der ganzen Datenbank vergleichen (bester Ausschnitt gewinnt)
+    let vis = [], crops = findCards(card);
+    let gap = 0;
+    if (VX.sig) { let bestV = -9;   // der Ausschnitt, bei dem der Top-Treffer am deutlichsten vor den anderen liegt
+      for (const cr of crops) { const v = visualSearch(cardSig(cr), 40); if (v.length < 5) continue;
+        const m = v[0].vis - v[4].vis; if (m > bestV) { bestV = m; vis = v; card = cr; } }
+      gap = bestV; }
+    else card = crops[crops.length > 2 ? 3 : 0];
     state.photo = card.toDataURL('image/jpeg', .75);
-    // 1. Bild mit der ganzen Datenbank vergleichen (sofort)
-    let vis = visualSearch(cardSig(card), 40);
-    // 2. Text: Name (+ Sprache), Nummer nur wenn das Bild nicht eindeutig ist
-    status('Lese Namen …');
-    const {name, lang} = await readName(card); guess = lang;
+    // 2. Text nur, wenn das Bild nicht eindeutig ist (spart Zeit)
+    const sure0 = vis.length > 1 && vis[0].vis > .6 && gap > .15 && vis[0].vis - vis[1].vis > .06;
+    let name = '', lang = null;
+    if (!sure0) { status('Lese Namen …'); ({name, lang} = await readName(card)); }
+    guess = lang;
     if (lang) vis = vis.map(c => ({...c, lang: (VX.meta.cards.find(x => x[0] === c.id) || [, , , , 'en'])[4].split(',').includes(lang) ? lang : c.lang}));
-    const sure = vis.length > 1 && vis[0].vis > .55 && vis[0].vis - vis[1].vis > .08;
+    const sure = vis.length > 1 && vis[0].vis > .6 && gap > .15 && vis[0].vis - vis[1].vis > .06;
     const byNameP = name ? findSmart(name, []).catch(() => []) : Promise.resolve([]);
     let numText = '', totals = new Set();
     if (!sure) { status('Lese Nummer …'); [numText, totals] = await Promise.all([readNumber(card, !!name || vis.length > 0), knownTotals()]); }
