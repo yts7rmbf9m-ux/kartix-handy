@@ -249,7 +249,10 @@ async function api(path, maxAge = 864e5) {
   if (JSON.stringify(d).length < 400000) store.set(key, {t: Date.now(), d});
   return d;
 }
-const sets = lang => api(`/${lang}/sets`, 7 * 864e5);
+// TCG Pocket (Handy-Spiel, keine echten Karten, kein Cardmarket) immer ausblenden
+const POCKET = /^(A\d|B\d|P-A|P-B)/i;
+const real = c => c && !POCKET.test(c.id);
+const sets = async lang => ((await api(`/${lang}/sets`, 7 * 864e5)) || []).filter(real);
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
 async function byNumber(lang, num, total, text) {
@@ -261,11 +264,11 @@ async function byNumber(lang, num, total, text) {
   // wie Kartix am Mac: Sets mit passender Kartenanzahl laden und darin die Nummer suchen
   for (const s of [...fit].reverse().slice(0, 8)) {
     const d = await api(`/${lang}/sets/${s.id}`, 3 * 864e5).catch(() => null);
-    for (const c of (d && d.cards) || []) if (String(parseInt(c.localId, 10)) === n) found.set(c.id, c);
+    for (const c of (d && d.cards) || []) if (real(c) && String(parseInt(c.localId, 10)) === n) found.set(c.id, c);
   }
   if (!found.size) {   // Sonderfälle (TG, GG, Promos …): direkt nach Nummer
     const r = await api(`/${lang}/cards?localId=eq:${encodeURIComponent(num)}`).catch(() => []);
-    for (const c of (r || []).slice(0, 40)) found.set(c.id, c);
+    for (const c of (r || []).filter(real).slice(0, 40)) found.set(c.id, c);
   }
   const t = norm(text);
   return [...found.values()].map(c => ({...c, lang, score: (c.name && t.includes(norm(c.name))) ? 2 : 0,
@@ -276,7 +279,7 @@ async function byName(lang, name, num) {
   const r = await api(`/${lang}/cards?name=${encodeURIComponent(name)}`).catch(() => []);
   const n = num ? String(parseInt(num, 10)) : '';
   const key = norm(name);
-  let out = (r || []).filter(c => (!n || String(parseInt(c.localId, 10)) === n) && norm(c.name).startsWith(key));
+  let out = (r || []).filter(c => real(c) && (!n || String(parseInt(c.localId, 10)) === n) && norm(c.name).startsWith(key));
   const all = await sets(lang) || [];
   out = out.map(c => { const st = all.find(s => c.id.startsWith(s.id + '-')) || {};
     return {...c, lang, setName: st.name || '', official: +(st.cardCount?.official) || 0}; });
@@ -286,17 +289,22 @@ async function byName(lang, name, num) {
 function oneOff(a, b) { a = String(parseInt(a, 10)).padStart(3, '0'); b = String(parseInt(b, 10)).padStart(3, '0');
   let d = 0; for (let i = 0; i < 3; i++) if (a[i] !== b[i]) d++; return d === 1; }
 // Name + Set-Größe + Nummer kombiniert bewerten
-function rankByRead(list, nums) {
-  const sc = c => { let best = 0;
+function rankByRead(list, nums, hpIds) {
+  const sc = c => { let best = hpIds && hpIds.has(c.id) ? .5 : 0;
     for (const [n, t] of nums.slice(0, 4)) {
       const numOk = n && String(parseInt(c.localId, 10)) === String(parseInt(n, 10)), totOk = t && c.official === +t;
-      best = Math.max(best, numOk && totOk ? 5 : totOk && n && oneOff(c.localId, n) ? 4 : totOk ? 3 : numOk ? 1 : 0); }
+      best = Math.max(best, (hpIds && hpIds.has(c.id) ? .5 : 0) + (numOk && totOk ? 5 : totOk && n && oneOff(c.localId, n) ? 4 : totOk ? 3 : numOk ? 1 : 0)); }
     return best; };
   return list.map(c => ({...c, score: sc(c)})).sort((a, b) => b.score - a.score);
 }
-async function findSmart(name, nums) {
+async function findSmart(name, nums, hp) {
   const r = []; for (const lg of langs()) r.push(await byName(lg, name, '').catch(() => []));
-  return rankByRead(merge(r), nums).slice(0, 30);
+  let hpIds = null;
+  if (hp) {   // gelesene KP/HP: Karten mit gleichem Wert bevorzugen (wichtig, wenn keine Nummer lesbar ist)
+    hpIds = new Set();
+    for (const lg of langs()) for (const c of (await api(`/${lg}/cards?name=${encodeURIComponent(name)}&hp=eq:${hp}`).catch(() => [])) || []) hpIds.add(c.id);
+  }
+  return rankByRead(merge(r), nums, hpIds).slice(0, 30);
 }
 
 // gewählte Sprache zuerst, dann Englisch/Deutsch (häufigster Fall: Sprache oben falsch eingestellt)
@@ -359,7 +367,7 @@ async function readCard(card) {
   await w.setParameters({tessedit_char_whitelist: '0123456789/', tessedit_pageseg_mode: '11'});
   let numText = '';
   // neue Karten: unten links · alte Karten (WotC/ex): ganz unten rechts, sehr klein · dann ganze Fußzeile
-  const regions = [[0, .9, .5, .1, 4], [.62, .93, .38, .07, 6], [.55, .9, .45, .1, 5], [0, .86, .6, .14, 4], [0, .82, 1, .18, 3]];
+  const regions = [[0, .9, .5, .1, 4], [.62, .93, .38, .07, 6], [.72, .935, .28, .055, 8], [.55, .9, .45, .1, 5], [0, .86, .6, .14, 4], [0, .82, 1, .18, 3]];
   for (const [x, y, ww, hh, sc] of regions) {
     numText += '\n' + (await w.recognize(strip(card, x, y, ww, hh, sc))).data.text;
     if (numbers(numText).length) break;
@@ -375,10 +383,14 @@ async function readCard(card) {
   const STOP = /^(basis|basic|phase|stage|stufe|kp|hp|ex|gx|vmax|vstar|entwickelt|evolves|from|aus|pokemon|pokémon)$/i;
   const words = (nameText.match(/[A-Za-zÄÖÜäöüßéÉ'’-]{4,}/g) || []).filter(s => !STOP.test(s));
   const best = await matchPokemon(words);
-  const all = nameText + ' ' + numText;
+  // KP/HP oben rechts (hilft, wenn die Nummer nicht lesbar ist)
+  const hpText = nameText + ' ' + (await w.recognize(strip(card, .55, .02, .43, .09, 3))).data.text;
+  const hm = hpText.match(/(?:HP|KP)\s*(\d{2,3})\b|\b(\d{2,3})\s*(?:HP|KP)/i);
+  const hp = hm ? +(hm[1] || hm[2]) : 0;
+  const all = hpText + ' ' + numText;
   const de = /\b(KP|BASIS|PHASE|STUFE|Schw[aä]che|Resistenz|R[uü]ckzug|Entwickelt)\b/i.test(all) || /[äöüÄÖÜß]/.test(nameText);
   const en = /\b(HP|BASIC|STAGE|Weakness|Resistance|Retreat|Evolves)\b/i.test(all);
-  return {numText, name: best || '', words: best ? [best] : [], lang: de && !en ? 'de' : en && !de ? 'en' : null};
+  return {numText, hp: hp >= 30 && hp <= 400 && hp % 10 === 0 ? hp : 0, name: best || '', words: best ? [best] : [], lang: de && !en ? 'de' : en && !de ? 'en' : null};
 }
 let NAMES = null;
 async function pokemonNames() {
@@ -490,11 +502,11 @@ async function recognize(card) {
   $('#shoot').innerHTML = '<span class="spin" style="border-top-color:#333;border-color:#0002"></span>';
   try {
     state.photo = card.toDataURL('image/jpeg', .75);
-    const {numText, name, words, lang} = await readCard(card); guess = lang;
+    const {numText, name, words, lang, hp} = await readCard(card); guess = lang;
     const nums = numbers(numText, await knownTotals());
     let cands = [], used = name;
     // 1. Name bekannt -> alle Karten mit dem Namen, nach Set-Größe/Nummer sortiert
-    if (name) cands = await findSmart(name, nums);
+    if (name) cands = await findSmart(name, nums, hp);
     // 2. kein guter Namenstreffer -> über Nummer + Set-Größe
     if (!cands.length || cands[0].score < 3) {
       for (const [n, t] of nums.slice(0, 4)) { const c = await findNumber(n, t, words.join(' '));
@@ -502,7 +514,8 @@ async function recognize(card) {
     }
     for (const wd of (cands.length ? [] : words.slice(0, 3))) { cands = await findName(wd, nums[0] ? nums[0][0] : ''); if (cands.length) { used = wd; break; } }
     $('#qName').value = used; $('#qNum').value = nums[0] ? nums[0].join('/') : '';
-    state.read = `Gelesen: ${nums[0] ? 'Nr. ' + nums[0].join('/') : 'keine Nummer'}${used ? ' · „' + used + '“' : ''}`;
+    state.read = `Gelesen: ${nums[0] ? 'Nr. ' + nums[0].join('/') : 'keine Nummer'}${used ? ' · „' + used + '“' : ''}${hp ? ' · ' + hp + ' KP' : ''}`
+      + (!nums[0] && cands.length > 1 ? ' – Nummer nicht lesbar, bitte Set prüfen (unten weitere Treffer)' : '');
     await show(cands);
   } catch (err) { status('Fehler: ' + err.message); }
   $('#shoot').innerHTML = ''; busy = false;
