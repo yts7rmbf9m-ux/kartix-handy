@@ -103,6 +103,37 @@ svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-l
 body.handler .trader{display:revert}
 body:not(.handler) .trader{display:none!important}
 
+/* Auswahl & Details (wie Beispiel) */
+.shead b{display:flex;align-items:center;gap:8px;font-size:22px;flex-direction:column;align-items:flex-start}
+.kick{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.topHit{background:var(--panel2);border-radius:22px;padding:18px 14px;text-align:center;margin-top:6px}
+.topHit img,.topHit .ph{width:46%;max-width:190px;aspect-ratio:63/88;object-fit:contain;border-radius:10px;display:block;margin:0 auto 12px}
+.hitPrice{font-size:28px;font-weight:800;font-family:var(--num);margin:6px 0 10px;font-variant-numeric:tabular-nums}
+.langBadge{display:inline-block;border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:7px 16px;font-weight:700;font-size:15px}
+.primary.wide{width:100%;margin-top:14px;padding:16px;font-size:17px;border-radius:18px}
+.alts{display:flex;flex-direction:column;gap:10px}
+.alt{display:grid;grid-template-columns:50px 1fr auto 14px;gap:12px;align-items:center;text-align:left;padding:10px 12px;border-radius:16px}
+.alt img,.alt .ph{width:50px;aspect-ratio:63/88;object-fit:cover;border-radius:5px;background:var(--bg);display:block}
+.alt .t{min-width:0}.alt .t b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alt .t small{color:var(--muted);font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alt .p{font-weight:800;font-family:var(--num);font-variant-numeric:tabular-nums}.alt .chev{color:var(--muted);font-size:22px}
+.linkbtn{background:none;border:0;color:var(--accent);width:100%;margin-top:14px;font-size:15px}
+.okchip{background:color-mix(in srgb,var(--ok) 18%,var(--panel));color:var(--ok);border-radius:99px;padding:8px 14px;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-weight:800}
+.ghost{border-radius:99px;padding:8px 14px;font-size:14px}
+#resHead.row{flex-direction:row!important;align-items:center!important}
+.hero{width:72%;max-width:300px;aspect-ratio:63/88;object-fit:contain;border-radius:14px;display:block;margin:6px auto 14px}
+.pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}.pills.center{flex-wrap:wrap;justify-content:center;margin-top:12px}
+.pills button{flex:0 0 auto;border-radius:99px;padding:9px 16px;font-size:15px;white-space:nowrap}
+.pills button b{color:var(--muted);margin-right:4px}.pills [data-better] b{margin:0 0 0 6px;font-family:var(--num)}
+.pills button.on{background:var(--accent);border-color:var(--accent);color:#fff}.pills button.on b{color:#fff}
+.valbox{margin-top:14px;border:1px solid var(--line);border-radius:20px;padding:14px 16px}
+.valbox b{display:block;font-size:34px;font-weight:800;font-family:var(--num);font-variant-numeric:tabular-nums;margin:4px 0}
+.valbox small{color:var(--muted);font-size:12px}
+.valbox.buy b{color:var(--ok)}
+.actbar{position:sticky;bottom:calc(-18px - var(--safe-b));display:grid;grid-template-columns:1fr 1.4fr;gap:10px;background:var(--panel);
+  padding:12px 0 calc(12px + var(--safe-b));border-top:1px solid var(--line);margin:0 0 calc(-18px - var(--safe-b))}
+.actbar button{padding:15px;border-radius:18px;font-size:17px;font-weight:700}
+
 /* Dashboard & Sammlung */
 h1{font-size:26px;margin:0 0 14px;letter-spacing:-.4px;display:flex;justify-content:space-between;align-items:center}
 h1 span{color:var(--accent)}
@@ -250,7 +281,7 @@ async function api(path, maxAge = 864e5) {
   return d;
 }
 // TCG Pocket (Handy-Spiel, keine echten Karten, kein Cardmarket) immer ausblenden
-const POCKET = /^(A\d|B\d|P-A|P-B)/i;
+const POCKET = /^(A\d|B\d|P-A|P-B)/;
 const real = c => c && !POCKET.test(c.id);
 const sets = async lang => ((await api(`/${lang}/sets`, 7 * 864e5)) || []).filter(real);
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
@@ -283,7 +314,7 @@ async function byName(lang, name, num) {
   const all = await sets(lang) || [];
   out = out.map(c => { const st = all.find(s => c.id.startsWith(s.id + '-')) || {};
     return {...c, lang, setName: st.name || '', official: +(st.cardCount?.official) || 0}; });
-  return out.reverse();   // neuere Sets zuerst
+  return out;
 }
 // Nummern ähnlich? (eine Ziffer falsch gelesen, z. B. 074 -> 024)
 function oneOff(a, b) { a = String(parseInt(a, 10)).padStart(3, '0'); b = String(parseInt(b, 10)).padStart(3, '0');
@@ -297,14 +328,9 @@ function rankByRead(list, nums, hpIds) {
     return best; };
   return list.map(c => ({...c, score: sc(c)})).sort((a, b) => b.score - a.score);
 }
-async function findSmart(name, nums, hp) {
+async function findSmart(name, nums) {
   const r = []; for (const lg of langs()) r.push(await byName(lg, name, '').catch(() => []));
-  let hpIds = null;
-  if (hp) {   // gelesene KP/HP: Karten mit gleichem Wert bevorzugen (wichtig, wenn keine Nummer lesbar ist)
-    hpIds = new Set();
-    for (const lg of langs()) for (const c of (await api(`/${lg}/cards?name=${encodeURIComponent(name)}&hp=eq:${hp}`).catch(() => [])) || []) hpIds.add(c.id);
-  }
-  return rankByRead(merge(r), nums, hpIds).slice(0, 30);
+  return rankByRead(merge(r), nums);
 }
 
 // gewählte Sprache zuerst, dann Englisch/Deutsch (häufigster Fall: Sprache oben falsch eingestellt)
@@ -361,36 +387,62 @@ function strip(card, x, y, w, h, scale = 3) {
   g.putImageData(d, 0, 0);
   return c;
 }
-async function readCard(card) {
+// schnell: Name zuerst (1 Durchgang, 2. nur wenn nötig), dann Nummer (1 Durchgang, 2. nur wenn nötig)
+async function readName(card) {
   const w = await getWorker();
-  status('Lese Nummer …');
-  await w.setParameters({tessedit_char_whitelist: '0123456789/', tessedit_pageseg_mode: '11'});
-  let numText = '';
-  // neue Karten: unten links · alte Karten (WotC/ex): ganz unten rechts, sehr klein · dann ganze Fußzeile
-  const regions = [[0, .9, .5, .1, 4], [.62, .93, .38, .07, 6], [.72, .935, .28, .055, 8], [.55, .9, .45, .1, 5], [0, .86, .6, .14, 4], [0, .82, 1, .18, 3]];
-  for (const [x, y, ww, hh, sc] of regions) {
-    numText += '\n' + (await w.recognize(strip(card, x, y, ww, hh, sc))).data.text;
-    if (numbers(numText).length) break;
-  }
-  if (!numbers(numText).length) {   // zweiter Versuch: ohne Zeichenfilter, ganze untere Kartenhälfte-Fußzeile
-    await w.setParameters({tessedit_char_whitelist: '', tessedit_pageseg_mode: '6'});
-    numText += '\n' + (await w.recognize(strip(card, 0, .8, 1, .2, 3))).data.text;
-  }
-  status('Lese Namen …');
   await w.setParameters({tessedit_char_whitelist: '', tessedit_pageseg_mode: '7'});
-  let nameText = (await w.recognize(strip(card, .05, .025, .7, .085, 2))).data.text;
-  nameText += ' ' + (await w.recognize(strip(card, .05, .05, .6, .07, 3))).data.text;   // alte Karten: Name etwas tiefer
   const STOP = /^(basis|basic|phase|stage|stufe|kp|hp|ex|gx|vmax|vstar|entwickelt|evolves|from|aus|pokemon|pokémon)$/i;
-  const words = (nameText.match(/[A-Za-zÄÖÜäöüßéÉ'’-]{4,}/g) || []).filter(s => !STOP.test(s));
-  const best = await matchPokemon(words);
-  // KP/HP oben rechts (hilft, wenn die Nummer nicht lesbar ist)
-  const hpText = nameText + ' ' + (await w.recognize(strip(card, .55, .02, .43, .09, 3))).data.text;
-  const hm = hpText.match(/(?:HP|KP)\s*(\d{2,3})\b|\b(\d{2,3})\s*(?:HP|KP)/i);
-  const hp = hm ? +(hm[1] || hm[2]) : 0;
-  const all = hpText + ' ' + numText;
-  const de = /\b(KP|BASIS|PHASE|STUFE|Schw[aä]che|Resistenz|R[uü]ckzug|Entwickelt)\b/i.test(all) || /[äöüÄÖÜß]/.test(nameText);
-  const en = /\b(HP|BASIC|STAGE|Weakness|Resistance|Retreat|Evolves)\b/i.test(all);
-  return {numText, hp: hp >= 30 && hp <= 400 && hp % 10 === 0 ? hp : 0, name: best || '', words: best ? [best] : [], lang: de && !en ? 'de' : en && !de ? 'en' : null};
+  let text = '', best = '';
+  for (const [x, y, ww, hh, sc] of [[.05, .025, .7, .085, 2], [.05, .05, .6, .07, 3]]) {   // 2. Streifen: alte Karten, Name tiefer
+    text += ' ' + (await w.recognize(strip(card, x, y, ww, hh, sc))).data.text;
+    const words = (text.match(/[A-Za-zÄÖÜäöüßéÉ'’-]{4,}/g) || []).filter(t => !STOP.test(t));
+    best = await matchPokemon(words);
+    if (best) break;
+  }
+  const de = /\b(KP|BASIS|PHASE|STUFE|Entwickelt)\b/i.test(text) || /[äöüÄÖÜß]/.test(text);
+  const en = /\b(HP|BASIC|STAGE|Evolves)\b/i.test(text);
+  return {name: best, lang: de && !en ? 'de' : en && !de ? 'en' : null};
+}
+async function readNumber(card, quick) {
+  const w = await getWorker();
+  await w.setParameters({tessedit_char_whitelist: '0123456789/', tessedit_pageseg_mode: '11'});
+  let t = '';
+  // ganze Fußzeile (links = neue Karten, rechts = alte Karten), dann rechts unten stark vergrößert
+  for (const [x, y, ww, hh, sc] of [[0, .88, 1, .12, 3], [.6, .92, .4, .08, 6]]) {
+    t += '\n' + (await w.recognize(strip(card, x, y, ww, hh, sc))).data.text;
+    if (numbers(t).length || quick) break;   // Name bekannt -> Bildvergleich entscheidet, 2. Durchgang sparen
+  }
+  return t;
+}
+// ---------- Bildvergleich: Scan gegen Datenbank-Bilder ----------
+// Bildausschnitt -> kleiner Farb-Fingerabdruck (unabhängig von Helligkeit)
+function sigBox(src, w, h, b) {
+  const W = 16, H = 12, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  g.filter = 'blur(0.5px)';
+  g.drawImage(src, w * b[0], h * b[1], w * b[2], h * b[3], 0, 0, W, H);
+  const p = g.getImageData(0, 0, W, H).data, v = [];
+  for (let ch = 0; ch < 3; ch++) { const a = []; for (let i = 0; i < W * H; i++) a.push(p[i * 4 + ch]);
+    const m = a.reduce((x, y) => x + y) / a.length, sd = Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length) || 1;
+    for (const x of a) v.push((x - m) / sd); }
+  return v;
+}
+// Bild (Artwork) zählt mehr als die ganze Karte
+const sig = (src, w, h) => ({a: sigBox(src, w, h, [.1, .11, .8, .4]), f: sigBox(src, w, h, [.06, .05, .88, .9])});
+const dot = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0) / a.length;
+const simOf = (x, y) => .7 * dot(x.a, y.a) + .3 * dot(x.f, y.f);
+const SIG = {};
+async function imgSig(url) {
+  if (SIG[url]) return SIG[url];
+  const b = await fetch(url).then(r => { if (!r.ok) throw 0; return r.blob(); }); const im = await createImageBitmap(b);
+  return SIG[url] = sig(im, im.width, im.height);
+}
+async function rankByImage(cands, card) {
+  if (cands.length < 2) return cands;
+  const me = sig(card, card.width, card.height);
+  const top = cands.slice(0, 30);
+  await Promise.all(top.map(async c => { c.sim = 0; if (!c.image) return;
+    try { c.sim = simOf(me, await imgSig(c.image + '/low.webp')); } catch (e) {} }));
+  return top.map(c => ({...c, total: (c.score || 0) + 4 * c.sim})).sort((a, b) => b.total - a.total).concat(cands.slice(30));
 }
 let NAMES = null;
 async function pokemonNames() {
@@ -502,32 +554,68 @@ async function recognize(card) {
   $('#shoot').innerHTML = '<span class="spin" style="border-top-color:#333;border-color:#0002"></span>';
   try {
     state.photo = card.toDataURL('image/jpeg', .75);
-    const {numText, name, words, lang, hp} = await readCard(card); guess = lang;
-    const nums = numbers(numText, await knownTotals());
-    let cands = [], used = name;
-    // 1. Name bekannt -> alle Karten mit dem Namen, nach Set-Größe/Nummer sortiert
-    if (name) cands = await findSmart(name, nums, hp);
-    // 2. kein guter Namenstreffer -> über Nummer + Set-Größe
-    if (!cands.length || cands[0].score < 3) {
-      for (const [n, t] of nums.slice(0, 4)) { const c = await findNumber(n, t, words.join(' '));
-        if (c.length && (!cands.length || !name || c[0].score)) { cands = c; nums.unshift([n, t]); break; } }
+    status('Lese Namen …');
+    const {name, lang} = await readName(card); guess = lang;
+    // Kandidaten zum Namen + Datenbank-Bilder laden, während die Nummer gelesen wird
+    const byNameP = name ? findSmart(name, []).catch(() => []) : Promise.resolve([]);
+    status('Lese Nummer …');
+    const [numText, totals] = await Promise.all([readNumber(card, !!name), knownTotals()]);
+    const nums = numbers(numText, totals).filter(([n, t]) => totals.has(+t));
+    let cands = name ? rankByRead(await byNameP, nums) : [];
+    if (!cands.length && nums.length) {   // kein Name lesbar -> über Nummer + Set-Größe
+      for (const [n, t] of nums.slice(0, 3)) { const c = await findNumber(n, t, ''); if (c.length) { cands = c; nums.unshift([n, t]); break; } }
     }
-    for (const wd of (cands.length ? [] : words.slice(0, 3))) { cands = await findName(wd, nums[0] ? nums[0][0] : ''); if (cands.length) { used = wd; break; } }
-    $('#qName').value = used; $('#qNum').value = nums[0] ? nums[0].join('/') : '';
-    state.read = `Gelesen: ${nums[0] ? 'Nr. ' + nums[0].join('/') : 'keine Nummer'}${used ? ' · „' + used + '“' : ''}${hp ? ' · ' + hp + ' KP' : ''}`
-      + (!nums[0] && cands.length > 1 ? ' – Nummer nicht lesbar, bitte Set prüfen (unten weitere Treffer)' : '');
+    status('Vergleiche Bild …');
+    cands = await rankByImage(cands, card);
+    status('');
+    $('#qName').value = name; $('#qNum').value = nums[0] ? nums[0].join('/') : '';
+    state.read = `Gelesen: ${nums[0] ? 'Nr. ' + nums[0].join('/') : 'keine Nummer'}${name ? ' · „' + name + '“' : ''}`
+      + (!nums[0] && cands.length > 1 ? ' · nach Bild gewählt, bitte prüfen' : '');
     await show(cands);
   } catch (err) { status('Fehler: ' + err.message); }
   $('#shoot').innerHTML = ''; busy = false;
 }
+const LANGS = [['en', '🇬🇧', 'Englisch'], ['de', '🇩🇪', 'Deutsch'], ['fr', '🇫🇷', 'Französisch'], ['it', '🇮🇹', 'Italienisch'], ['es', '🇪🇸', 'Spanisch'], ['pt', '🇵🇹', 'Portugiesisch']];
+const langOf = l => LANGS.find(x => x[0] === l) || LANGS[0];
+const nrOf = c => `#${esc(c.localId)}`;
+// ---- Schritt 1: Wähl deine Karte (Top-Treffer + andere) ----
 async function show(cands) {
   state.cands = cands; state.better = false; state.cond = 'NM'; state.card = null;
   stopCam(); closeOnly('#searchSheet'); openSheet('#resSheet');
-  if (!cands.length) { $('#resHead').textContent = 'Nicht erkannt';
-    $('#res').innerHTML = `<p class="sub">${esc(state.read || '')}</p><p class="warn">Keine Karte gefunden. Sprache oben prüfen oder manuell suchen.</p>
-      <button class="primary" style="width:100%" id="toSearch">Manuell suchen</button>`;
+  if (!cands.length) { $('#resHead').className = ''; $('#resHead').innerHTML = 'Nicht erkannt';
+    $('#res').innerHTML = `<p class="sub">${esc(state.read || '')}</p><p class="warn">Keine Karte gefunden. Karte gerade und ganz im Rahmen fotografieren oder manuell suchen.</p>
+      <button class="primary" style="width:100%;margin-top:10px" id="toSearch">Manuell suchen</button>`;
     $('#toSearch').onclick = () => { closeOnly('#resSheet'); openSheet('#searchSheet'); }; return; }
-  await pick(cands[0].id);
+  picker();
+}
+function picker() {
+  const [top, ...rest] = state.cands, others = rest.slice(0, 10), L = langOf(top.lang);
+  $('#resHead').className = ''; $('#resHead').innerHTML = '<small class="kick">Top-Treffer</small>Wähl deine Karte';
+  $('#res').innerHTML = `
+    <div class="topHit">
+      ${top.image ? `<img src="${esc(top.image)}/high.webp" alt="">` : '<div class="ph"></div>'}
+      <div class="name">${esc(top.name)}</div>
+      <div class="sub">${esc(top.setName || '')} · ${nrOf(top)}</div>
+      <div class="hitPrice" data-p="${esc(top.id)}"><span class="spin"></span></div>
+      <span class="langBadge">${L[1]} ${L[2]}</span>
+    </div>
+    <button class="primary wide" id="take">Diese Karte nehmen</button>
+    ${others.length ? `<div class="kick" style="margin:18px 4px 8px">Andere Karte?</div>
+      <div class="alts">${others.map(k => `<button class="alt" data-id="${esc(k.id)}">
+        ${k.image ? `<img src="${esc(k.image)}/low.webp" alt="" loading="lazy">` : '<span class="ph"></span>'}
+        <span class="t"><b>${esc(k.name)}</b><small>${esc(k.setName || '')} · ${nrOf(k)}</small></span>
+        <span class="p" data-p="${esc(k.id)}"></span><span class="chev">›</span></button>`).join('')}</div>` : ''}
+    <button class="linkbtn" id="toSearch2">Nicht dabei? Manuell suchen</button>
+    ${state.read ? `<div class="sub" style="font-size:12px;text-align:center;margin-top:6px">${esc(state.read)}</div>` : ''}`;
+  $('#take').onclick = () => pick(top.id);
+  $$('#res .alt').forEach(b => b.onclick = () => pick(b.dataset.id));
+  $('#toSearch2').onclick = () => { closeOnly('#resSheet'); openSheet('#searchSheet'); };
+  // Preise nachladen (parallel)
+  [top, ...others].forEach(async k => {
+    const d = await api(`/${k.lang || 'en'}/cards/${k.id}`, 6 * 36e5).catch(() => null);
+    const v = d ? marketOf(d).value : 0, el = $(`#res [data-p="${CSS.escape(k.id)}"]`);
+    if (el) el.textContent = v ? eur(v) : '–';
+  });
 }
 function closeOnly(id) { $(id).hidden = true; }
 async function pick(id) {
@@ -535,53 +623,50 @@ async function pick(id) {
   $('#res').innerHTML = '<p class="sub"><span class="spin"></span> Hole Preise …</p>';
   try { state.card = await api(`/${lg}/cards/${id}`, 6 * 36e5); state.cur = id; state.cardLang = lg; }
   catch (e) { $('#res').innerHTML = `<p class="warn">Fehler: ${esc(e.message)}</p>`; return; }
+  state.better = false; state.cond = 'NM';
   render();
 }
+// ---- Schritt 2: Details ----
 function render() {
   const c = state.card; if (!c) return;
   const m = marketOf(c, state.better), f = (COND.find(x => x[0] === state.cond) || COND[0])[2], val = m.value * f, q = quote();
-  const others = state.cands.filter(k => k.id !== state.cur).slice(0, 12);
-  $('#resHead').textContent = 'Ergebnis';
+  $('#resHead').className = 'row'; $('#resHead').innerHTML = `<span class="okchip">✓ Erkannt</span>${state.cands.length > 1 ? '<button class="ghost" id="wrong">Falsche Karte?</button>' : ''}`;
   $('#res').innerHTML = `
-    <div class="imgs" ${state.photo ? '' : 'style="grid-template-columns:minmax(0,200px);justify-content:center"'}>
-      ${state.photo ? `<div><img src="${state.photo}" alt=""><div class="cap">Dein Scan</div></div>` : ''}
-      <div>${c.image ? `<img src="${esc(c.image)}/high.webp" alt="">` : '<img alt="">'}<div class="cap">Datenbank</div></div></div>
-    <div class="name">${esc(c.name)}</div>
-    <div class="sub">${esc(c.set?.name || '')} · ${esc(c.localId)}${c.set?.cardCount?.official ? '/' + c.set.cardCount.official : ''}${c.rarity ? ' · ' + esc(c.rarity) : ''}
-</div>
-    <div class="chips" style="margin:8px 0 0">${['de', 'en'].map(l => `<button data-lg="${l}" class="${state.cardLang === l ? 'on' : ''}">${l === 'de' ? 'Deutsch' : 'Englisch'}</button>`).join('')}</div>
-    ${state.read ? `<div class="sub" style="font-size:12px">${esc(state.read)}</div>` : ''}
-    ${m.value ? `<div class="prices"><div><b>${eur(m.trend)}</b><span>Trend</span></div><div><b>${eur(m.avg30)}</b><span>Ø 30 Tage</span></div><div><b>${eur(m.low)}</b><span>ab</span></div></div>
-      <div class="big"><b>${eur(val)}</b><div>Marktwert${f < 1 ? ` (${state.cond}, ${Math.round(f * 100)} %)` : ' (Near Mint)'}</div></div>
-      <div class="big buy trader"><b>${eur(val * q)}</b><div>Ankauf (${Math.round(q * 100)} %)</div></div>`
-      : '<p class="warn">Für diese Karte gibt es keinen Cardmarket-Preis.</p>'}
-    <div class="opts">
-      <label>Zustand<select id="cond">${COND.map(x => `<option value="${x[0]}" ${x[0] === state.cond ? 'selected' : ''}>${x[0]} – ${x[1]}</option>`).join('')}</select></label>
-      ${m.two ? `<label>Ausführung<select id="better"><option value="0">Standard</option><option value="1" ${state.better ? 'selected' : ''}>Holo / Reverse</option></select></label>` : '<span></span>'}
+    <div class="detail">
+      ${c.image ? `<img class="hero" src="${esc(c.image)}/high.webp" alt="">` : ''}
+      <div class="kick" style="text-align:center">${esc(c.set?.name || '')} · #${esc(c.localId)}${c.set?.cardCount?.official ? '/' + c.set.cardCount.official : ''}</div>
+      <div class="name" style="text-align:center;font-size:26px">${esc(c.name)}</div>
+      <div class="pills center">${LANGS.map(l => `<button data-lg="${l[0]}" class="${state.cardLang === l[0] ? 'on' : ''}">${l[1]} ${l[0].toUpperCase()}</button>`).join('')}</div>
+      <div class="kick" style="margin:16px 4px 8px">Zustand</div>
+      <div class="pills">${COND.map(x => `<button data-cond="${x[0]}" class="${x[0] === state.cond ? 'on' : ''}"><b>${x[0]}</b> ${x[1]}</button>`).join('')}</div>
+      ${m.two ? `<div class="kick" style="margin:14px 4px 8px">Version</div><div class="pills">
+        <button data-better="0" class="${state.better ? '' : 'on'}">Standard <b>${eur(marketOf(c, false).value)}</b></button><button data-better="1" class="${state.better ? 'on' : ''}">Holo / Reverse <b>${eur(marketOf(c, true).value)}</b></button></div>` : ''}
+      ${m.value ? `<div class="valbox"><div class="kick">Marktwert${f < 1 ? ` · ${state.cond} ${Math.round(f * 100)} %` : ''}</div><b>${eur(val)}</b>
+          <small>Trend ${eur(m.trend)} · Ø 30 T. ${eur(m.avg30)} · ab ${eur(m.low)}${m.updated ? ` · Stand ${m.updated.split('-').reverse().join('.')}` : ''}</small></div>
+        <div class="valbox buy trader"><div class="kick">Ankauf ${Math.round(q * 100)} %</div><b>${eur(val * q)}</b></div>`
+        : '<p class="warn">Für diese Karte gibt es keinen Cardmarket-Preis.</p>'}
+      <div style="height:84px"></div>
     </div>
-    <div class="row" style="margin-top:12px"><button class="primary" id="add" style="flex:1">Speichern in „${esc(S.target)}“</button>
-      <button id="again" aria-label="Weiter scannen">Weiter</button></div>
-    ${others.length ? `<div class="sub" style="margin-top:14px">Nicht die richtige? Passende antippen:</div><div class="cands">${others.map(k =>
-      `<button data-id="${esc(k.id)}">${k.image ? `<img src="${esc(k.image)}/low.webp" alt="" loading="lazy">` : ''}${esc(k.name)}<br>${esc(k.setName || '')} ${esc(k.localId)}</button>`).join('')}</div>` : ''}`;
+    <div class="actbar"><button id="again">Schließen</button><button class="primary" id="add">+ Hinzufügen</button></div>`;
+  if ($('#wrong')) $('#wrong').onclick = picker;
   $$('#res [data-lg]').forEach(b => b.onclick = () => switchLang(b.dataset.lg));
-  $('#cond').onchange = e => { state.cond = e.target.value; render(); };
-  if ($('#better')) $('#better').onchange = e => { state.better = e.target.value === '1'; render(); };
+  $$('#res [data-cond]').forEach(b => b.onclick = () => { state.cond = b.dataset.cond; render(); });
+  $$('#res [data-better]').forEach(b => b.onclick = () => { state.better = b.dataset.better === '1'; render(); });
   $('#add').onclick = () => {
     items.unshift({id: Date.now().toString(36), cardId: c.id, lang: state.cardLang, name: c.name, set: c.set?.name || '', nr: c.localId,
       img: c.image ? c.image + '/low.webp' : '', cond: state.cond, better: state.better, value: val, list: S.target, ts: Date.now()});
-    S.lang = state.cardLang; store.set('lang', S.lang);
-    save(); $('#add').disabled = true; $('#add').textContent = `✓ gespeichert in „${S.target}“`;
-    setTimeout(() => { closeSheets(); status(`${c.name} gespeichert · ${eur(val)}`); }, 600);
+    if (['de', 'en'].includes(state.cardLang)) { S.lang = state.cardLang; store.set('lang', S.lang); }
+    save(); $('#add').disabled = true; $('#add').textContent = `✓ in „${S.target}“`;
+    setTimeout(() => { closeSheets(); status(`${c.name} gespeichert · ${eur(val)}`); }, 500);
   };
   $('#again').onclick = closeSheets;
-  $$('#res .cands button').forEach(b => b.onclick = () => pick(b.dataset.id));
 }
 $('#resClose').onclick = closeSheets;
-// gleiche Karte in der anderen Sprache
+// gleiche Karte in einer anderen Sprache
 async function switchLang(lg) {
   if (lg === state.cardLang) return;
   const d = await api(`/${lg}/cards/${state.cur}`, 6 * 36e5).catch(() => null);
-  if (!d) { status(`Diese Karte gibt es nicht ${lg === 'de' ? 'auf Deutsch' : 'auf Englisch'}.`); return; }
+  if (!d) { status(`Diese Karte gibt es nicht auf ${langOf(lg)[2]}.`); return; }
   state.card = d; state.cardLang = lg; render();
 }
 async function manual() {
@@ -668,6 +753,8 @@ try { if (sessionStorage.getItem('kx_h') === '1') setMode(true); } catch (e) {}
 drawTargets();
 go('vScan');
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// beim Start schon vorladen -> erster Scan schneller
+setTimeout(() => { getWorker().then(() => status('')).catch(() => {}); pokemonNames(); knownTotals().catch(() => {}); }, 600);
 </script>
 </body>
 </html>
