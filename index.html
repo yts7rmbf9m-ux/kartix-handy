@@ -33,7 +33,7 @@ svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-l
 .tabs{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:calc(8px + var(--safe-b));z-index:20;
   display:grid;grid-template-columns:repeat(3,1fr);background:#f5f6f9;border-radius:24px;padding:6px;box-shadow:0 6px 24px #0007}
 .tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;font-weight:600;color:#6b7180;padding:7px 4px;border-radius:18px}
-.tabs button.on{background:#f3b6dc;color:#2a2f3a}
+.tabs button.on{background:var(--accent);color:#fff}
 .tabs button svg{width:26px;height:26px}
 .view{position:fixed;inset:0;bottom:calc(var(--tab) + 18px + var(--safe-b));overflow-y:auto;
   padding:calc(14px + var(--safe-t)) max(16px,env(safe-area-inset-right)) 20px max(16px,env(safe-area-inset-left))}
@@ -261,9 +261,14 @@ async function byNumber(lang, num, total, text) {
   const ids = new Set(fit.map(s => s.id));
   const n = String(parseInt(num, 10));
   const found = new Map();
-  for (const q of [n, n.padStart(3, '0'), n.padStart(2, '0')]) {
-    const r = await api(`/${lang}/cards?localId=eq:${encodeURIComponent(q)}`).catch(() => []);
-    for (const c of r || []) if (ids.has(c.id.replace(/-[^-]+$/, ''))) found.set(c.id, c);
+  // wie Kartix am Mac: Sets mit passender Kartenanzahl laden und darin die Nummer suchen
+  for (const s of fit.slice(0, 8)) {
+    const d = await api(`/${lang}/sets/${s.id}`, 3 * 864e5).catch(() => null);
+    for (const c of (d && d.cards) || []) if (String(parseInt(c.localId, 10)) === n) found.set(c.id, c);
+  }
+  if (!found.size) {   // Sonderfälle (TG, GG, Promos …): direkt nach Nummer
+    const r = await api(`/${lang}/cards?localId=eq:${encodeURIComponent(num)}`).catch(() => []);
+    for (const c of (r || []).slice(0, 40)) found.set(c.id, c);
   }
   const t = norm(text);
   return [...found.values()].map(c => ({...c, lang, score: (c.name && t.includes(norm(c.name))) ? 2 : 0,
