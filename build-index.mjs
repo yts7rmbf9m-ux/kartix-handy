@@ -62,3 +62,29 @@ fs.writeFileSync('vindex.bin', Buffer.from(out.buffer));
 fs.writeFileSync('vindex.json', JSON.stringify({v: 1, date: new Date().toISOString().slice(0, 10), n: keep.length, len: VSIG_LEN,
   cards: keep.map(i => { const c = all[i]; return [c.id, c.img, c.name, c.nr, c.langs.join(',')]; })}));
 console.log('fertig:', keep.length, 'Karten mit Bild');
+
+// 4. Sets (Name je Sprache, Logo, Erscheinungsdatum, Serie) -> vsets.json
+const sets = new Map();
+for (const lg of LANGS) for (const st of (await get(`${API}/${lg}/sets`) || [])) {
+  if (POCKET.test(st.id)) continue;
+  const e = sets.get(st.id) || {id: st.id, names: {}, total: 0, official: 0};
+  e.names[lg] = st.name; e.logo = e.logo || st.logo || ''; e.symbol = e.symbol || st.symbol || '';
+  e.total = Math.max(e.total, +(st.cardCount?.total) || 0); e.official = Math.max(e.official, +(st.cardCount?.official) || 0);
+  sets.set(st.id, e);
+}
+const setList = [...sets.values()];
+let si = 0;
+async function setWorker() {
+  while (si < setList.length) {
+    const e = setList[si++];
+    for (const lg of ['en', ...LANGS.filter(l => l !== 'en')]) {
+      if (!e.names[lg]) continue;
+      const d = await get(`${API}/${lg}/sets/${e.id}`);
+      if (d) { e.date = d.releaseDate || ''; e.serie = d.serie?.name || ''; if (!e.logo && d.logo) e.logo = d.logo; break; }
+    }
+  }
+}
+await Promise.all(Array.from({length: 12}, setWorker));
+fs.writeFileSync('vsets.json', JSON.stringify({v: 1, date: new Date().toISOString().slice(0, 10),
+  sets: setList.map(e => ({id: e.id, n: e.names, logo: (e.logo || '').replace(ASSETS, ''), date: e.date || '', serie: e.serie || '', total: e.total, official: e.official}))}));
+console.log('Sets:', setList.length);

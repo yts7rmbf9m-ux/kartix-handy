@@ -135,6 +135,44 @@ body:not(.handler) .trader{display:none!important}
 .actbar button{padding:15px;border-radius:18px;font-size:17px;font-weight:700}
 
 .vxbox{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text,#fff);font-size:14px}
+/* Sets & Bibliothek */
+.pillbtn{border-radius:99px;padding:8px 16px;font-size:15px;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:color-mix(in srgb,var(--accent) 10%,var(--panel))}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--panel2);border-radius:99px;padding:4px;margin-bottom:12px}
+.seg button{border:0;background:none;border-radius:99px;padding:10px;font-size:16px;color:var(--muted)}
+.seg button.on{background:var(--accent);color:#fff;font-weight:700}
+.filt{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.fbox{background:var(--panel2);border-radius:14px;padding:8px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.fbox small{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.fbox select{background:none;border:0;padding:0;font-size:16px;font-weight:700;color:inherit;-webkit-appearance:none;appearance:none}
+.srow{display:grid;grid-template-columns:76px 1fr;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px 14px;margin-bottom:10px;width:100%;text-align:left}
+.srow .lg{width:76px;height:76px;border-radius:16px;background:var(--panel2);display:grid;place-items:center;overflow:hidden;font-weight:800;color:var(--muted)}
+.srow .lg img{max-width:92%;max-height:80%;object-fit:contain}
+.srow .t{min-width:0}.srow .t .h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.srow .t b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .pc{color:var(--accent);font-weight:800;font-family:var(--num)}
+.srow small{display:block;color:var(--muted);font-size:13px;margin-top:2px}.srow small i{font-style:normal;color:inherit;font-weight:700;font-family:var(--num)}
+.bar{height:5px;border-radius:9px;background:var(--panel2);margin-top:8px;overflow:hidden}.bar span{display:block;height:100%;background:var(--accent);border-radius:9px}
+.yr{font-size:13px;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin:16px 4px 8px}
+.topbar{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;margin:0 0 12px}.topbar b{text-align:center;font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{background:none;border:0;font-size:32px;line-height:1;padding:0 8px;color:var(--accent)}
+.setStat{background:var(--panel2);border-radius:18px;padding:14px 16px}.setStat b{font-size:22px;font-family:var(--num)}.setStat small{color:var(--muted);font-size:12px;letter-spacing:1.2px;text-transform:uppercase;font-weight:700}
+.multi{width:100%;margin:12px 0;padding:14px;border-radius:18px;font-size:16px;font-weight:700;background:color-mix(in srgb,var(--accent) 22%,var(--panel));border-color:transparent}
+.multi.on{background:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding-bottom:90px}
+.tile{background:none;border:0;padding:0;text-align:left;min-width:0}
+.tile .ti{position:relative;display:block;border-radius:9px;overflow:hidden;aspect-ratio:63/88;background:var(--panel2)}
+.tile img{width:100%;height:100%;object-fit:cover;display:block}
+.tile.miss img{filter:grayscale(.35) blur(1.2px);opacity:.32}
+.tile .badge{position:absolute;left:6%;bottom:5%;background:#0f1d2ecc;color:#fff;border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap}
+.tile .badge i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:3px;vertical-align:1px}
+.tile .chk{position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:#0006;display:grid;place-items:center;color:#fff;font-size:14px}
+.tile.sel .chk{background:var(--accent);border-color:var(--accent)}
+.tile.sel .ti{outline:3px solid var(--accent);outline-offset:-3px}
+.tile .tm{display:flex;justify-content:space-between;font-size:12px;margin-top:4px;color:var(--muted);font-family:var(--num)}
+.tile.own .tm b{color:inherit}.tile.own .tm{color:var(--text,#fff)}
+.multibar{position:fixed;left:12px;right:12px;bottom:calc(var(--tab) + 16px + var(--safe-b));z-index:20;display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px 12px;box-shadow:0 8px 30px #0008}
+.multibar span{flex:1;font-weight:700}
+
 /* Dashboard & Sammlung */
 h1{font-size:26px;margin:0 0 14px;letter-spacing:-.4px;display:flex;justify-content:space-between;align-items:center}
 h1 span{color:var(--accent)}
@@ -206,12 +244,39 @@ h1 span{color:var(--accent)}
 
 <!-- ============ Sammlung ============ -->
 <section class="view" id="vColl" hidden>
-  <h1>Meine Sammlung <button class="x" id="newList" aria-label="Neue Liste"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></h1>
-  <div class="chips" id="cChips"></div>
-  <div class="kpis"><div class="kpi"><b id="cCount">0</b><span>Karten</span></div><div class="kpi"><b id="cValue">0,00 €</b><span>Marktwert</span></div>
-    <div class="kpi wide trader"><b id="cBuy" style="color:var(--ok)">0,00 €</b><span>Ankauf</span></div></div>
-  <div class="card" id="cItems"></div>
-  <div class="row" style="margin-top:12px;justify-content:space-between"><button id="cClear">Liste leeren</button><button id="cDel">Liste löschen</button></div>
+ <div id="collMain">
+  <div class="kick" style="color:var(--accent)">Listen, Sets &amp; Bibliothek</div>
+  <h1>Sammlung <button class="pillbtn" id="toLib">Bibliothek →</button></h1>
+  <div class="seg"><button data-seg="sets" class="on">Sets</button><button data-seg="lists">Listen</button></div>
+  <div id="segSets">
+    <div class="filt"><label class="fbox"><small>Sortierung</small><select id="setSort"><option value="prog">Fortschritt</option><option value="new">Neueste</option><option value="name">Name</option></select></label>
+      <label class="fbox"><small>Zählt aus Liste</small><select id="setList"></select></label></div>
+    <div id="mySets"></div>
+  </div>
+  <div id="segLists" hidden>
+    <div class="row" style="justify-content:flex-end;margin-bottom:6px"><button class="x" id="newList" aria-label="Neue Liste"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+    <div class="chips" id="cChips"></div>
+    <div class="kpis"><div class="kpi"><b id="cCount">0</b><span>Karten</span></div><div class="kpi"><b id="cValue">0,00 €</b><span>Marktwert</span></div>
+      <div class="kpi wide trader"><b id="cBuy" style="color:var(--ok)">0,00 €</b><span>Ankauf</span></div></div>
+    <div class="card" id="cItems"></div>
+    <div class="row" style="margin-top:12px;justify-content:space-between"><button id="cClear">Liste leeren</button><button id="cDel">Liste löschen</button></div>
+  </div>
+ </div>
+ <div id="libView" hidden>
+  <div class="topbar"><button class="back" id="libBack" aria-label="Zurück">‹</button><b>Set-Bibliothek</b><span></span></div>
+  <input id="libQ" placeholder="Setname, Kürzel oder Serie …" autocomplete="off">
+  <div class="filt"><label class="fbox"><small>Sprachraum</small><select id="libLang"><option value="">Alle</option><option value="de">Deutsch</option><option value="en">Englisch</option><option value="fr">Französisch</option><option value="it">Italienisch</option><option value="es">Spanisch</option><option value="pt">Portugiesisch</option></select></label></div>
+  <div id="libList"></div>
+ </div>
+ <div id="setView" hidden>
+  <div class="topbar"><button class="back" id="setBack" aria-label="Zurück">‹</button><b id="setTitle"></b><span></span></div>
+  <div class="setStat" id="setStat"></div>
+  <div class="pills" id="setChips" style="margin:12px 0"></div>
+  <input id="setQ" placeholder="Name oder Nummer …" autocomplete="off">
+  <button class="multi" id="multiBtn">＋ Mehrere hinzufügen</button>
+  <div class="grid" id="setGrid"></div>
+  <div class="multibar" id="multiBar" hidden><span id="multiN">0 gewählt</span><button id="multiCancel">Abbrechen</button><button class="primary" id="multiAdd">Hinzufügen</button></div>
+ </div>
 </section>
 
 <nav class="tabs">
@@ -445,9 +510,9 @@ async function loadIndex(force) {
 }
 function vxInfo(t) { const el = $('#vxInfo'); if (el) el.textContent = t; }
 // mehrere leicht verschobene/gezoomte Ausschnitte -> verzeiht ungenaues Ausschneiden
-function cardSig(card) {
+function cardSig(card, one) {
   const out = [], W = card.width, H = card.height;
-  for (const [dx, dy, z] of [[0, 0, 1], [.025, 0, 1], [-.025, 0, 1], [0, .02, 1], [0, -.02, 1], [0, 0, .95], [0, 0, 1.05]]) {
+  for (const [dx, dy, z] of (one ? [[0, 0, 1]] : [[0, 0, 1], [.025, 0, 1], [-.025, 0, 1], [0, .02, 1], [0, -.02, 1], [0, 0, .95], [0, 0, 1.05]])) {
     const c = document.createElement('canvas'); c.width = 245; c.height = 342;
     const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.fillStyle = '#888'; g.fillRect(0, 0, 245, 342);
     const sw = W * z, sh = H * z; g.drawImage(card, (W - sw) / 2 + dx * W, (H - sh) / 2 + dy * H, sw, sh, 0, 0, 245, 342);
@@ -544,7 +609,7 @@ function cardFromFile(file) {
   });
 }
 // Karte im Foto finden (Karte hat viel Detail, Tisch/Hintergrund wenig) und gerade auf 1260×1760 ausschneiden
-function findCards(src) {
+function findBoxes(src) {
   const W = 240, H = Math.round(src.height * W / src.width), c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'); g.drawImage(src, 0, 0, W, H);
   const d = g.getImageData(0, 0, W, H).data, gr = new Float32Array(W * H);
@@ -578,12 +643,37 @@ function findCards(src) {
     boxes.push(fit(x, y, w * 1.04, h * 1.03));
     const r = refineEdges(gr, W, H, x, y, w, h); boxes.push([r.x, r.y, r.w, r.h]);
   }
-  return boxes.map(([x, y, w, h]) => {
-    const out = document.createElement('canvas'); out.width = 1260; out.height = 1760;
-    const o = out.getContext('2d'); o.fillStyle = '#888'; o.fillRect(0, 0, 1260, 1760);
-    o.drawImage(src, x * sx, y * sy, w * sx, h * sy, 0, 0, 1260, 1760);
-    return out;
-  });
+  // Rechteck im Kartenformat mit viel Detail innen und wenig direkt außen herum (= Kartenrand), per Summentabelle schnell
+  const I = new Float64Array((cw + 1) * (ch + 1));
+  for (let y = 0; y < ch; y++) { let rs = 0; for (let x = 0; x < cw; x++) { rs += e[y * cw + x]; I[(y + 1) * (cw + 1) + x + 1] = I[y * (cw + 1) + x + 1] + rs; } }
+  const S = (x0, y0, x1, y1) => { x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(cw, x1); y1 = Math.min(ch, y1);
+    return x1 <= x0 || y1 <= y0 ? [0, 0] : [I[y1 * (cw + 1) + x1] - I[y0 * (cw + 1) + x1] - I[y1 * (cw + 1) + x0] + I[y0 * (cw + 1) + x0], (x1 - x0) * (y1 - y0)]; };
+  const cand = [];
+  for (const asp of [63 / 88, .77]) for (let w = Math.round(cw * .3); w <= cw; w++) {
+    const h = Math.round(w / asp); if (h > ch) continue; const r = Math.max(1, Math.round(w * .1));
+    for (let y = 0; y + h <= ch; y++) for (let x = 0; x + w <= cw; x++) {
+      const [si, ni] = S(x, y, x + w, y + h), [so, no] = S(x - r, y - r, x + w + r, y + h + r), ring = (so - si) / Math.max(1, no - ni);
+      cand.push([si / ni - 1.6 * ring + .02 * med * w, x, y, w, h]); } }
+  cand.sort((a, b) => b[0] - a[0]);
+  const took = [];
+  for (const c of cand) { if (took.length >= 6) break;
+    if (took.some(t => Math.abs(t[1] - c[1]) < 2 && Math.abs(t[2] - c[2]) < 2 && Math.abs(t[3] - c[3]) < 3)) continue; took.push(c);
+    boxes.push([c[1] * B, c[2] * B, c[3] * B, c[4] * B]); }
+  // Raster: verschiedene Größen und Positionen (Karte in der Hand, schräg im Bild …)
+  for (const f of [.85, .7, .55]) for (const asp of [63 / 88, .77]) {
+    let h = H * f, w = h * asp; if (w > W * .98) { w = W * .98; h = w / asp; }
+    for (const cy of [.5]) for (const cx of [.5]) {
+      const x = W * cx - w / 2, y = H * cy - h / 2;
+      if (x < -w * .05 || y < -h * .05 || x + w > W * 1.05 || y + h > H * 1.05) continue;
+      boxes.push([x, y, w, h]); }
+  }
+  return boxes.map(([x, y, w, h]) => [x * sx, y * sy, w * sx, h * sy]);
+}
+// Ausschnitt aus dem Originalbild auf feste Größe bringen
+function cropBox(src, b, W = 1260, H = 1760) {
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const o = out.getContext('2d'); o.imageSmoothingQuality = 'high'; o.fillStyle = '#888'; o.fillRect(0, 0, W, H);
+  o.drawImage(src, b[0], b[1], b[2], b[3], 0, 0, W, H); return out;
 }
 function refineEdges(gr, W, H, x, y, w, h) {
   const at = (X, Y) => gr[Math.max(0, Math.min(H - 1, Y)) * W + Math.max(0, Math.min(W - 1, X))];
@@ -616,7 +706,7 @@ function go(v) {
   $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   if (v === 'vScan') startCam(); else stopCam();
   if (v === 'vDash') drawDash();
-  if (v === 'vColl') drawColl();
+  if (v === 'vColl') { collPage('main'); $('#segSets').hidden ? drawColl() : drawMySets(); }
 }
 $$('.tabs button').forEach(b => b.onclick = () => go(b.dataset.v));
 function openSheet(id) { $(id).hidden = false; }
@@ -677,13 +767,26 @@ async function recognize(card) {
   $('#shoot').innerHTML = '<span class="spin" style="border-top-color:#333;border-color:#0002"></span>';
   try {
     // 1. Karte im Bild finden und mit der ganzen Datenbank vergleichen (bester Ausschnitt gewinnt)
-    let vis = [], crops = findCards(card);
-    let gap = 0;
-    if (VX.sig) { let bestV = -9;   // der Ausschnitt, bei dem der Top-Treffer am deutlichsten vor den anderen liegt
-      for (const cr of crops) { const v = visualSearch(cardSig(cr), 40); if (v.length < 5) continue;
-        const m = v[0].vis - v[4].vis; if (m > bestV) { bestV = m; vis = v; card = cr; } }
-      gap = bestV; }
-    else card = crops[crops.length > 2 ? 3 : 0];
+    let vis = [], gap = 0;
+    const src = card, boxes = findBoxes(src);
+    if (VX.sig) {   // jeder Ausschnitt grob gegen die Datenbank; gewinnt der, bei dem der Top-Treffer am deutlichsten vorne liegt
+      // Bewertung eines Ausschnitts: Top-Treffer deutlich vor dem 5. + insgesamt ähnlich
+      const score = b => { const v = visualSearch(cardSig(cropBox(src, b, 245, 342), true), 5); return v.length < 5 ? -9 : v[0].vis - v[4].vis + .3 * v[0].vis; };
+      const scored = boxes.map(b => [score(b), b]).sort((a, b) => b[0] - a[0]);
+      let [bestS, bestB] = scored[0];
+      const sure = bestS > .45;   // eindeutig -> nur diesen einen nachjustieren
+      for (const [s0, b0] of scored.slice(0, sure ? 1 : 3)) {   // die besten Ausschnitte fein nachjustieren
+        let cs = s0, cb = b0;
+        for (let round = 0; round < 4; round++) { let moved = false;
+          for (const [dx, dy, dw, dh] of [[.03, 0, 0, 0], [-.03, 0, 0, 0], [0, .03, 0, 0], [0, -.03, 0, 0], [0, 0, .05, 0], [0, 0, -.05, 0], [0, 0, 0, .05], [0, 0, 0, -.05]]) {
+            const w = cb[2] * (1 + dw), h = cb[3] * (1 + dh), nb = [cb[0] + dx * cb[2] - (w - cb[2]) / 2, cb[1] + dy * cb[3] - (h - cb[3]) / 2, w, h];
+            const ns = score(nb); if (ns > cs + .002) { cs = ns; cb = nb; moved = true; } }
+          if (!moved) break; }
+        if (cs > bestS) { bestS = cs; bestB = cb; }
+      }
+      card = cropBox(src, bestB); vis = visualSearch(cardSig(card), 40);
+      gap = vis.length > 4 ? vis[0].vis - vis[4].vis : 0;
+    } else card = cropBox(src, boxes[boxes.length > 3 ? 3 : 0]);
     state.photo = card.toDataURL('image/jpeg', .75);
     // 2. Text nur, wenn das Bild nicht eindeutig ist (spart Zeit)
     const sure0 = vis.length > 1 && vis[0].vis > .6 && gap > .15 && vis[0].vis - vis[1].vis > .06;
@@ -716,7 +819,7 @@ const langOf = l => LANGS.find(x => x[0] === l) || LANGS[0];
 const nrOf = c => `#${esc(c.localId)}`;
 // ---- Schritt 1: Wähl deine Karte (Top-Treffer + andere) ----
 async function show(cands) {
-  state.cands = cands; state.better = false; state.cond = 'NM'; state.card = null;
+  state.cands = cands; state.better = false; state.cond = 'NM'; state.card = null; state.addTo = null;
   stopCam(); closeOnly('#searchSheet'); openSheet('#resSheet');
   if (!cands.length) { $('#resHead').className = ''; $('#resHead').innerHTML = 'Nicht erkannt';
     $('#res').innerHTML = `<p class="sub">${esc(state.read || '')}</p><p class="warn">Keine Karte gefunden. Karte gerade und ganz im Rahmen fotografieren oder manuell suchen.</p>
@@ -793,9 +896,9 @@ function render() {
   $$('#res [data-better]').forEach(b => b.onclick = () => { state.better = b.dataset.better === '1'; render(); });
   $('#add').onclick = () => {
     items.unshift({id: Date.now().toString(36), cardId: c.id, lang: state.cardLang, name: c.name, set: c.set?.name || '', nr: c.localId,
-      img: c.image ? c.image + '/low.webp' : '', cond: state.cond, better: state.better, value: val, list: S.target, ts: Date.now()});
+      img: c.image ? c.image + '/low.webp' : '', cond: state.cond, better: state.better, value: val, list: state.addTo || S.target, ts: Date.now()});
     if (['de', 'en'].includes(state.cardLang)) { S.lang = state.cardLang; store.set('lang', S.lang); }
-    save(); $('#add').disabled = true; $('#add').textContent = `✓ in „${S.target}“`;
+    save(); if (!$('#setView').hidden) drawSet(); $('#add').disabled = true; $('#add').textContent = `✓ in „${state.addTo || S.target}“`;
     setTimeout(() => { closeSheets(); status(`${c.name} gespeichert · ${eur(val)}`); }, 500);
   };
   $('#again').onclick = closeSheets;
@@ -857,6 +960,150 @@ $('#cDel').onclick = e => { if (S.lists.length < 2) { e.target.textContent = 'Le
   confirmBtn(e.target, 'del', 'Liste + Karten löschen?', () => { items = items.filter(x => x.list !== S.view); S.lists = S.lists.filter(l => l !== S.view); S.view = ''; save(); drawTargets(); drawColl(); }); };
 $('#newList').onclick = () => { const n = prompt('Name der neuen Liste'); if (n && n.trim() && !S.lists.includes(n.trim())) { S.lists.push(n.trim()); S.view = n.trim(); save(); drawTargets(); drawColl(); } };
 $('#setBtn').onclick = () => openSheet('#setSheet');
+
+// ============ Sets & Bibliothek (Daten liegen auf dem Handy) ============
+let SETS = null, SETCARDS = null;
+const FLAG = {de: '🇩🇪', en: '🇬🇧', fr: '🇫🇷', it: '🇮🇹', es: '🇪🇸', pt: '🇵🇹'};
+async function loadSets() {
+  if (SETS) return SETS;
+  try {
+    const cache = await caches.open('kx-index'); let r = await cache.match('vsets.json');
+    if (!r || Date.now() - (+store.get('vsCheck', 0)) > 864e5) {
+      const f = await fetchIdx('vsets.json'); if (f) { await cache.put('vsets.json', f.clone()); r = f; store.set('vsCheck', Date.now()); } }
+    if (r) SETS = (await r.json()).sets;
+  } catch (e) {}
+  if (!SETS) {   // Ersatz, bis die Datenbank Sets enthält: direkt aus TCGdex (ohne Erscheinungsdatum)
+    const m = new Map();
+    for (const lg of ['de', 'en']) for (const x of (await sets(lg).catch(() => [])) || []) {
+      const e = m.get(x.id) || {id: x.id, n: {}, logo: '', date: '', serie: '', total: 0, official: 0};
+      e.n[lg] = x.name; e.logo = e.logo || (x.logo || '').replace('https://assets.tcgdex.net/', '');
+      e.total = Math.max(e.total, +(x.cardCount?.total) || 0); e.official = Math.max(e.official, +(x.cardCount?.official) || 0); m.set(x.id, e);
+    }
+    SETS = [...m.values()];
+  }
+  return SETS;
+}
+const numKey = n => { const m = String(n).match(/\d+/); return m ? +m[0] : 9999; };
+function setCardsFromIndex(id) {
+  if (!SETCARDS && VX.meta) { SETCARDS = {};
+    for (const c of VX.meta.cards) { const sid = c[0].slice(0, c[0].lastIndexOf('-')); (SETCARDS[sid] = SETCARDS[sid] || []).push({id: c[0], img: 'https://assets.tcgdex.net/' + c[1], name: c[2], nr: c[3]}); }
+    for (const k in SETCARDS) SETCARDS[k].sort((a, b) => numKey(a.nr) - numKey(b.nr) || String(a.nr).localeCompare(String(b.nr))); }
+  return (SETCARDS && SETCARDS[id]) || [];
+}
+async function setCards(id) {
+  let l = setCardsFromIndex(id);
+  if (!l.length) for (const lg of ['en', 'de']) { const d = await api(`/${lg}/sets/${id}`, 7 * 864e5).catch(() => null);
+    if (d && d.cards && d.cards.length) { l = d.cards.filter(c => c.image).map(c => ({id: c.id, img: c.image, name: c.name, nr: c.localId})); break; } }
+  return l;
+}
+const setName = x => x.n[S.lang === 'en' ? 'en' : 'de'] || x.n.en || x.n.de || Object.values(x.n)[0] || x.id;
+const logoUrl = x => x.logo ? 'https://assets.tcgdex.net/' + x.logo + '.webp' : '';
+const setTotal = x => setCardsFromIndex(x.id).length || x.total || x.official || 0;
+const fmtDate = d => d ? d.split('-').reverse().join('.') : '';
+const ownList = () => S.lists.includes(S.setList) ? S.setList : (S.lists.includes('Sammlung') ? 'Sammlung' : S.lists[0]);
+function ownedMap() { const m = {}, L = ownList(); for (const x of items) if (x.list === L) (m[x.cardId] = m[x.cardId] || []).push(x); return m; }
+function setRow(x, own) {
+  const tot = setTotal(x), have = own[x.id] || 0, pc = tot ? Math.round(have / tot * 100) : 0, lg = logoUrl(x);
+  return `<button class="srow" data-set="${esc(x.id)}"><span class="lg">${lg ? `<img src="${esc(lg)}" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode('${esc(x.id.toUpperCase()).slice(0, 6)}'))">` : esc(x.id.toUpperCase()).slice(0, 6)}</span>
+    <span class="t"><span class="h"><b>${esc(setName(x))}</b><span class="pc">${pc}%</span></span>
+    <small><i>${have}</i> / ${tot}${x.date ? ' · Release: ' + fmtDate(x.date) : ''}</small><span class="bar"><span style="width:${pc}%"></span></span></span></button>`;
+}
+function ownedPerSet() { const per = {}, om = ownedMap(); for (const cid in om) { const sid = cid.slice(0, cid.lastIndexOf('-')); per[sid] = (per[sid] || 0) + 1; } return per; }
+async function drawMySets() {
+  $('#setList').innerHTML = S.lists.map(l => `<option ${l === ownList() ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  const all = await loadSets(), per = ownedPerSet(), sort = $('#setSort').value;
+  let mine = all.filter(x => per[x.id]);
+  mine.sort(sort === 'name' ? (a, b) => setName(a).localeCompare(setName(b)) : sort === 'new' ? (a, b) => (b.date || '').localeCompare(a.date || '')
+    : (a, b) => (per[b.id] / (setTotal(b) || 1)) - (per[a.id] / (setTotal(a) || 1)));
+  $('#mySets').innerHTML = mine.map(x => setRow(x, per)).join('') ||
+    `<div class="empty">Noch keine Karten in „${esc(ownList())}“. Öffne die <b>Bibliothek</b>, wähle ein Set und tippe Karten an, oder scanne Karten in diese Liste.</div>`;
+  $$('#mySets [data-set]').forEach(b => b.onclick = () => openSet(b.dataset.set));
+}
+async function drawLib() {
+  const all = await loadSets(), per = ownedPerSet(), q = norm($('#libQ').value), lg = $('#libLang').value;
+  const list = all.filter(x => (!lg || x.n[lg]) && (!q || norm(Object.values(x.n).join(' ') + ' ' + x.id + ' ' + x.serie).includes(q)))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  let html = '', yr = null;
+  for (const x of list.slice(0, 400)) { const y = (x.date || '').slice(0, 4) || 'Ohne Datum'; if (y !== yr) { yr = y; html += `<div class="yr">${y}</div>`; } html += setRow(x, per); }
+  $('#libList').innerHTML = html || '<div class="empty">Kein Set gefunden.</div>';
+  $$('#libList [data-set]').forEach(b => b.onclick = () => openSet(b.dataset.set));
+}
+function collPage(p) { $('#collMain').hidden = p !== 'main'; $('#libView').hidden = p !== 'lib'; $('#setView').hidden = p !== 'set'; window.scrollTo(0, 0); }
+$$('.seg button').forEach(b => b.onclick = () => { $$('.seg button').forEach(x => x.classList.toggle('on', x === b));
+  $('#segSets').hidden = b.dataset.seg !== 'sets'; $('#segLists').hidden = b.dataset.seg !== 'lists'; if (b.dataset.seg === 'sets') drawMySets(); else drawColl(); });
+$('#toLib').onclick = () => { collPage('lib'); drawLib(); };
+$('#libBack').onclick = () => { collPage('main'); drawMySets(); };
+let libT; $('#libQ').oninput = () => { clearTimeout(libT); libT = setTimeout(drawLib, 200); };
+$('#libLang').onchange = drawLib; $('#setSort').onchange = drawMySets;
+$('#setList').onchange = () => { S.setList = $('#setList').value; store.set('setList', S.setList); drawMySets(); };
+S.setList = store.get('setList', '');
+
+// ---- ein Set: alle Karten, fehlende ausgegraut ----
+const CUR = {id: null, from: 'main', filter: 'all', multi: false, sel: new Set(), cards: []};
+const PRICE = {};
+async function openSet(id) {
+  CUR.from = $('#libView').hidden ? 'main' : 'lib';
+  Object.assign(CUR, {id, filter: 'all', multi: false, sel: new Set(), cards: []}); $('#setQ').value = '';
+  const x = (await loadSets()).find(s => s.id === id) || {id, n: {}};
+  $('#setTitle').textContent = setName(x); collPage('set');
+  $('#setGrid').innerHTML = '<div class="empty" style="grid-column:1/-1"><span class="spin"></span></div>';
+  CUR.cards = await setCards(id); drawSet();
+}
+$('#setBack').onclick = () => { CUR.multi = false; $('#multiBar').hidden = true; collPage(CUR.from); CUR.from === 'lib' ? drawLib() : drawMySets(); };
+function drawSet() {
+  const om = ownedMap(), cards = CUR.cards, have = cards.filter(c => om[c.id]), q = norm($('#setQ').value);
+  const val = have.reduce((a, c) => a + om[c.id].reduce((b, x) => b + (+x.value || 0), 0), 0), pc = cards.length ? Math.round(have.length / cards.length * 100) : 0;
+  $('#setStat').innerHTML = `<div class="row" style="justify-content:space-between"><b>${have.length} / ${cards.length}</b><b style="color:var(--accent)">${pc}%</b></div>
+    <div class="bar" style="height:7px"><span style="width:${pc}%"></span></div><small style="display:block;margin-top:8px">${eur(val)} im Besitz</small>`;
+  const n = {all: cards.length, miss: cards.length - have.length, own: have.length};
+  $('#setChips').innerHTML = [['all', 'Alle'], ['miss', 'Fehlend'], ['own', 'Im Besitz']].map(([k, l]) =>
+    `<button data-f="${k}" class="${CUR.filter === k ? 'on' : ''}">${l} <b>${n[k]}</b></button>`).join('');
+  const list = cards.filter(c => (CUR.filter === 'all' || (CUR.filter === 'own') === !!om[c.id]) && (!q || norm(c.name).includes(q) || norm(c.nr) === q || String(numKey(c.nr)) === q));
+  $('#setGrid').innerHTML = list.map(c => { const o = om[c.id], it = o && o[0];
+    return `<button class="tile ${o ? 'own' : 'miss'} ${CUR.sel.has(c.id) ? 'sel' : ''}" data-id="${esc(c.id)}"><span class="ti">
+      <img src="${esc(it && it.img ? it.img : c.img + '/low.webp')}" alt="${esc(c.name)}" loading="lazy">
+      ${o ? `<span class="badge"><i></i>${FLAG[it.lang] || ''} · ${esc(it.cond)}${o.length > 1 ? ' · ' + o.length + '×' : ''}</span>` : ''}${CUR.multi && !o ? '<span class="chk">✓</span>' : ''}</span>
+      <span class="tm"><b>#${esc(c.nr)}</b><span data-pr="${esc(c.id)}">${PRICE[c.id] != null ? (PRICE[c.id] ? eur(PRICE[c.id]) : '–') : ''}</span></span></button>`; }).join('')
+    || '<div class="empty" style="grid-column:1/-1">Keine Karten.</div>';
+  $$('#setChips [data-f]').forEach(b => b.onclick = () => { CUR.filter = b.dataset.f; drawSet(); });
+  $$('#setGrid .tile').forEach(b => b.onclick = () => tileTap(b.dataset.id, b));
+  $('#multiBtn').classList.toggle('on', CUR.multi); $('#multiBtn').textContent = CUR.multi ? 'Karten antippen …' : '＋ Mehrere hinzufügen';
+  $('#multiBar').hidden = !CUR.multi; $('#multiN').textContent = `${CUR.sel.size} gewählt`;
+  watchPrices();
+}
+let setQT; $('#setQ').oninput = () => { clearTimeout(setQT); setQT = setTimeout(drawSet, 150); };
+// Preise erst laden, wenn die Karte sichtbar wird
+const priceQ = []; let priceRun = 0;
+const priceObs = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { priceObs.unobserve(e.target); priceQ.push(e.target.dataset.pr); pumpPrices(); } }), {rootMargin: '300px'}) : null;
+function watchPrices() { $$('#setGrid [data-pr]').forEach(el => { if (PRICE[el.dataset.pr] == null && priceObs) priceObs.observe(el); }); }
+function pumpPrices() {
+  while (priceRun < 6 && priceQ.length) { const id = priceQ.shift(); if (PRICE[id] != null) continue; priceRun++;
+    (async () => { let d = null; for (const lg of ['en', 'de']) { d = await api(`/${lg}/cards/${id}`, 6 * 36e5).catch(() => null); if (d) break; }
+      PRICE[id] = d ? marketOf(d).value : 0; const el = $(`#setGrid [data-pr="${CSS.escape(id)}"]`); if (el) el.textContent = PRICE[id] ? eur(PRICE[id]) : '–';
+    })().finally(() => { priceRun--; pumpPrices(); }); }
+}
+function tileTap(id, el) {
+  const om = ownedMap();
+  if (CUR.multi && !om[id]) { CUR.sel.has(id) ? CUR.sel.delete(id) : CUR.sel.add(id); el.classList.toggle('sel'); $('#multiN').textContent = `${CUR.sel.size} gewählt`; return; }
+  const c = CUR.cards.find(x => x.id === id), o = om[id];
+  state.cands = [{id, lang: o ? o[0].lang : (S.lang === 'en' ? 'en' : 'de'), name: c.name, localId: c.nr, image: c.img}];
+  state.photo = ''; state.read = ''; state.better = false; state.cond = 'NM'; state.addTo = ownList();
+  openSheet('#resSheet'); pick(id);
+}
+$('#multiBtn').onclick = () => { CUR.multi = !CUR.multi; CUR.sel.clear(); if (CUR.multi && CUR.filter === 'own') CUR.filter = 'miss'; drawSet(); };
+$('#multiCancel').onclick = () => { CUR.multi = false; CUR.sel.clear(); drawSet(); };
+$('#multiAdd').onclick = async () => {
+  const ids = [...CUR.sel]; if (!ids.length) return; const L = ownList(), want = S.lang === 'en' ? 'en' : 'de';
+  $('#multiAdd').disabled = true; let n = 0;
+  for (const id of ids) {
+    let d = null, lg = want; for (const l of [want, 'en', 'de']) { d = await api(`/${l}/cards/${id}`, 6 * 36e5).catch(() => null); if (d) { lg = l; break; } }
+    const c = CUR.cards.find(x => x.id === id) || {};
+    items.unshift({id: Date.now().toString(36) + (n++), cardId: id, lang: lg, name: d ? d.name : c.name, set: d ? d.set?.name || '' : '', nr: c.nr,
+      img: d && d.image ? d.image + '/low.webp' : (c.img ? c.img + '/low.webp' : ''), cond: 'NM', better: false, value: d ? marketOf(d).value : 0, list: L, ts: Date.now()});
+    $('#multiN').textContent = `${n} / ${ids.length} …`;
+  }
+  save(); $('#multiAdd').disabled = false; CUR.multi = false; CUR.sel.clear(); drawSet(); status(`${ids.length} Karten in „${L}“ gespeichert`);
+};
 
 // ============ Händler-Modus mit PIN ============
 async function hash(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('kartix:' + s));
