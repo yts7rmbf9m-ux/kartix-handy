@@ -278,7 +278,8 @@ async function byNumber(lang, num, total, text) {
 async function byName(lang, name, num) {
   const r = await api(`/${lang}/cards?name=${encodeURIComponent(name)}`).catch(() => []);
   const n = num ? String(parseInt(num, 10)) : '';
-  let out = (r || []).filter(c => !n || String(parseInt(c.localId, 10)) === n);
+  const key = norm(name);
+  let out = (r || []).filter(c => (!n || String(parseInt(c.localId, 10)) === n) && norm(c.name).startsWith(key));
   const all = await sets(lang) || [];
   out = out.map(c => ({...c, lang, setName: (all.find(s => c.id.startsWith(s.id + '-')) || {}).name || ''}));
   return out.reverse().slice(0, 30);   // neuere Sets zuerst
@@ -342,9 +343,10 @@ async function readCard(card) {
   status('Lese Nummer …');
   await w.setParameters({tessedit_char_whitelist: '0123456789/', tessedit_pageseg_mode: '11'});
   let numText = '';
-  const regions = [[0, .9, .5, .1], [0, .86, .6, .14], [.5, .88, .5, .12], [0, .82, 1, .18]];  // links unten (neu), rechts unten (alt), Fußzeile
-  for (const [x, y, ww, hh] of regions) {
-    numText += '\n' + (await w.recognize(strip(card, x, y, ww, hh, 4))).data.text;
+  // neue Karten: unten links · alte Karten (WotC/ex): ganz unten rechts, sehr klein · dann ganze Fußzeile
+  const regions = [[0, .9, .5, .1, 4], [.62, .93, .38, .07, 6], [.55, .9, .45, .1, 5], [0, .86, .6, .14, 4], [0, .82, 1, .18, 3]];
+  for (const [x, y, ww, hh, sc] of regions) {
+    numText += '\n' + (await w.recognize(strip(card, x, y, ww, hh, sc))).data.text;
     if (numbers(numText).length) break;
   }
   if (!numbers(numText).length) {   // zweiter Versuch: ohne Zeichenfilter, ganze untere Kartenhälfte-Fußzeile
@@ -353,10 +355,38 @@ async function readCard(card) {
   }
   status('Lese Namen …');
   await w.setParameters({tessedit_char_whitelist: '', tessedit_pageseg_mode: '7'});
-  const nameText = (await w.recognize(strip(card, .05, .025, .7, .085, 2))).data.text;
-  const STOP = /^(basis|basic|phase|stage|stufe|kp|hp|ex|gx|vmax|vstar|entwickelt|evolves|from|aus)$/i;
+  let nameText = (await w.recognize(strip(card, .05, .025, .7, .085, 2))).data.text;
+  nameText += ' ' + (await w.recognize(strip(card, .05, .05, .6, .07, 3))).data.text;   // alte Karten: Name etwas tiefer
+  const STOP = /^(basis|basic|phase|stage|stufe|kp|hp|ex|gx|vmax|vstar|entwickelt|evolves|from|aus|pokemon|pokémon)$/i;
   const words = (nameText.match(/[A-Za-zÄÖÜäöüßéÉ'’-]{4,}/g) || []).filter(s => !STOP.test(s));
-  return {numText, name: words[0] || '', words};
+  const best = await matchPokemon(words);
+  return {numText, name: best || '', words: best ? [best] : []};
+}
+let NAMES = null;
+async function pokemonNames() {
+  if (!NAMES) { try { NAMES = await (await fetch('names.json')).json(); } catch (e) { NAMES = []; } }
+  return NAMES;
+}
+function lev(a, b) {
+  const m = a.length, n = b.length, d = Array.from({length: m + 1}, (_, i) => [i]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m][n];
+}
+// gelesene Wörter -> echter Pokémon-Name (deutsch/englisch); nur bei wenigen Lesefehlern, nie über Teilwörter
+async function matchPokemon(words) {
+  const list = await pokemonNames(); let best = '', bestScore = 1;
+  for (const w of words) {
+    const a = norm(w); if (a.length < 4) continue;
+    for (const nm of list) {
+      const b = norm(nm); if (Math.abs(b.length - a.length) > 2) continue;
+      const s = lev(a, b) / Math.max(a.length, b.length);
+      if (s < bestScore) { bestScore = s; best = nm; }
+    }
+    if (bestScore === 0) break;
+  }
+  return bestScore <= .3 ? best : '';
 }
 function cardFromFile(file) {
   return createImageBitmap(file).then(img => {
