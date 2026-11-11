@@ -59,8 +59,7 @@ const keep = all.map((c, i) => i).filter(i => ok[i]);
 const out = new Int8Array(keep.length * VSIG_LEN);
 keep.forEach((i, j) => out.set(sig.subarray(i * VSIG_LEN, (i + 1) * VSIG_LEN), j * VSIG_LEN));
 fs.writeFileSync('vindex.bin', Buffer.from(out.buffer));
-fs.writeFileSync('vindex.json', JSON.stringify({v: 1, date: new Date().toISOString().slice(0, 10), n: keep.length, len: VSIG_LEN,
-  cards: keep.map(i => { const c = all[i]; return [c.id, c.img, c.name, c.nr, c.langs.join(',')]; })}));
+const cardRows = keep.map(i => { const c = all[i]; return [c.id, c.img, c.name, c.nr, c.langs.join(',')]; });
 console.log('fertig:', keep.length, 'Karten mit Bild');
 
 // 4. Sets (Name je Sprache, Logo, Erscheinungsdatum, Serie) -> vsets.json
@@ -85,6 +84,7 @@ async function setWorker() {
   }
 }
 await Promise.all(Array.from({length: 12}, setWorker));
-fs.writeFileSync('vsets.json', JSON.stringify({v: 1, date: new Date().toISOString().slice(0, 10),
+// Sets stehen mit in vindex.json (dann muss die Automatik-Datei nicht geändert werden)
+fs.writeFileSync('vindex.json', JSON.stringify({v: 1, date: new Date().toISOString().slice(0, 10), n: keep.length, len: VSIG_LEN, cards: cardRows,
   sets: setList.map(e => ({id: e.id, n: e.names, logo: (e.logo || '').replace(ASSETS, ''), date: e.date || '', serie: e.serie || '', total: e.total, official: e.official}))}));
 console.log('Sets:', setList.length);
