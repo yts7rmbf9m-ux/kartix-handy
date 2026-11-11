@@ -134,6 +134,7 @@ body:not(.handler) .trader{display:none!important}
   padding:12px 0 calc(12px + var(--safe-b));border-top:1px solid var(--line);margin:0 0 calc(-18px - var(--safe-b))}
 .actbar button{padding:15px;border-radius:18px;font-size:17px;font-weight:700}
 
+.vxbox{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text,#fff);font-size:14px}
 /* Dashboard & Sammlung */
 h1{font-size:26px;margin:0 0 14px;letter-spacing:-.4px;display:flex;justify-content:space-between;align-items:center}
 h1 span{color:var(--accent)}
@@ -239,6 +240,7 @@ h1 span{color:var(--accent)}
     <div class="field">Händler-Modus<button id="modeBtn2">🔒 Händler-Modus freischalten</button></div>
     <label class="field trader">Ankauf in % vom Marktwert<input id="quote" inputmode="decimal"></label>
     <div class="field trader">PIN<button id="pinChange">PIN ändern</button></div>
+    <div class="field">Kartenerkennung<div class="vxbox"><span id="vxInfo">wird geladen …</span><button id="vxUpd">Nach Updates suchen</button></div></div>
     <div class="sub">Preise: Cardmarket über TCGdex, für Near Mint. Marktwert = Mittel aus Trend, Ø 30 und Ø 7 Tage. Daten bleiben nur auf diesem Handy.</div>
   </div></div></div>
 
@@ -249,6 +251,7 @@ h1 span{color:var(--accent)}
   <div class="row" style="margin-top:12px;justify-content:flex-end"><button id="pinCancel">Abbrechen</button><button class="primary" id="pinOk">OK</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="vsig.js"></script>
 <script>
 const API = 'https://api.tcgdex.net/v2';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -310,7 +313,7 @@ async function byName(lang, name, num) {
   const r = await api(`/${lang}/cards?name=${encodeURIComponent(name)}`).catch(() => []);
   const n = num ? String(parseInt(num, 10)) : '';
   const key = norm(name);
-  let out = (r || []).filter(c => real(c) && (!n || String(parseInt(c.localId, 10)) === n) && norm(c.name).startsWith(key));
+  let out = (r || []).filter(c => real(c) && (!n || String(parseInt(c.localId, 10)) === n) && norm(c.name).includes(key));
   const all = await sets(lang) || [];
   out = out.map(c => { const st = all.find(s => c.id.startsWith(s.id + '-')) || {};
     return {...c, lang, setName: st.name || '', official: +(st.cardCount?.official) || 0}; });
@@ -391,11 +394,11 @@ function strip(card, x, y, w, h, scale = 3) {
 async function readName(card) {
   const w = await getWorker();
   await w.setParameters({tessedit_char_whitelist: '', tessedit_pageseg_mode: '7'});
-  const STOP = /^(basis|basic|phase|stage|stufe|kp|hp|ex|gx|vmax|vstar|entwickelt|evolves|from|aus|pokemon|pokémon)$/i;
+  const STOP = /^(basis|basic|phase|stage|stufe|kp|hp|ex|gx|vmax|vstar|entwickelt|evolves|from|aus|pokemon|pokémon|hisui|hisuian|alola|alolan|galar|galarian|paldea|paldean|mega|radiant|strahlendes|dunkles|dark|team)$/i;
   let text = '', best = '';
   for (const [x, y, ww, hh, sc] of [[.05, .025, .7, .085, 2], [.05, .05, .6, .07, 3]]) {   // 2. Streifen: alte Karten, Name tiefer
     text += ' ' + (await w.recognize(strip(card, x, y, ww, hh, sc))).data.text;
-    const words = (text.match(/[A-Za-zÄÖÜäöüßéÉ'’-]{4,}/g) || []).filter(t => !STOP.test(t));
+    const words = (text.match(/[A-Za-zÄÖÜäöüßéÉ'’]{4,}/g) || []).filter(t => !STOP.test(t));
     best = await matchPokemon(words);
     if (best) break;
   }
@@ -413,6 +416,63 @@ async function readNumber(card, quick) {
     if (numbers(t).length || quick) break;   // Name bekannt -> Bildvergleich entscheidet, 2. Durchgang sparen
   }
   return t;
+}
+// ---------- Kartenerkennung per Bild (Datenbank auf dem Handy, wird automatisch auf GitHub erstellt) ----------
+const VX = {meta: null, sig: null};
+const RAW = 'https://raw.githubusercontent.com/yts7rmbf9m-ux/kartix-handy/main/';
+async function fetchIdx(f) { for (const u of [f, RAW + f]) { try { const r = await fetch(u, {cache: 'no-store'}); if (r.ok) return r; } catch (e) {} } return null; }
+async function loadIndex(force) {
+  try {
+    const cache = await caches.open('kx-index');
+    let jr = await cache.match('vindex.json'), br = await cache.match('vindex.bin');
+    if (!jr || !br || force || Date.now() - (+store.get('vxCheck', 0)) > 864e5) {
+      const fresh = await fetchIdx('vindex.json');
+      if (fresh) {
+        const fm = await fresh.clone().json(), old = jr ? await jr.clone().json().catch(() => null) : null;
+        if (!old || old.date !== fm.date || !br) {
+          if (!jr) vxInfo('Bild-Datenbank wird geladen …');
+          const b = await fetchIdx('vindex.bin');
+          if (b) { await cache.put('vindex.json', fresh.clone()); await cache.put('vindex.bin', b.clone()); jr = fresh; br = b; }
+        }
+        store.set('vxCheck', Date.now());
+      }
+    }
+    if (!jr || !br) { vxInfo('noch keine Bild-Datenbank – Erkennung nur über Text'); return false; }
+    VX.meta = await jr.json(); VX.sig = new Int8Array(await br.arrayBuffer());
+    vxInfo(`kennt ${VX.meta.n.toLocaleString('de-AT')} Karten · Stand ${VX.meta.date.split('-').reverse().join('.')}`);
+    return true;
+  } catch (e) { vxInfo('Bild-Datenbank nicht verfügbar'); return false; }
+}
+function vxInfo(t) { const el = $('#vxInfo'); if (el) el.textContent = t; }
+function cardSig(card) {
+  const c = document.createElement('canvas'); c.width = 245; c.height = 342;
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(card, 0, 0, 245, 342);
+  return vsig(g.getImageData(0, 0, 245, 342).data, 245, 342, 4);
+}
+// ähnlichste Karten der ganzen Datenbank (dauert ~30 ms)
+function visualSearch(me, k = 40) {
+  if (!VX.sig) return [];
+  const n = VX.meta.n, L = VX.meta.len, top = [];
+  let min = -9;
+  for (let i = 0; i < n; i++) {
+    const v = vsim(VX.sig, i * L, me, 0);
+    if (top.length < k || v > min) { top.push([v, i]); if (top.length > k) { top.sort((a, b) => b[0] - a[0]); top.length = k; min = top[k - 1][0]; } }
+  }
+  top.sort((a, b) => b[0] - a[0]);
+  const want = guess || (S.lang === 'en' ? 'en' : 'de');
+  return top.map(([v, i]) => { const [id, img, name, nr, lgs] = VX.meta.cards[i], ls = lgs.split(',');
+    return {id, name, localId: nr, image: 'https://assets.tcgdex.net/' + img, lang: ls.includes(want) ? want : ls.includes('en') ? 'en' : ls[0], vis: v}; });
+}
+// Setname und Setgröße zu Kandidaten aus der Bildsuche ergänzen
+async function enrich(list) {
+  const by = {};
+  for (const c of list) {
+    if (c.setName && c.official) continue;
+    by[c.lang] = by[c.lang] || await sets(c.lang).catch(() => []);
+    const st = by[c.lang].find(x => x.id === c.id.slice(0, c.id.lastIndexOf('-'))) || {};
+    c.setName = c.setName || st.name || ''; c.official = c.official || +(st.cardCount?.official) || 0;
+  }
+  return list;
 }
 // ---------- Bildvergleich: Scan gegen Datenbank-Bilder ----------
 // Bildausschnitt -> kleiner Farb-Fingerabdruck (unabhängig von Helligkeit)
@@ -439,10 +499,10 @@ async function imgSig(url) {
 async function rankByImage(cands, card) {
   if (cands.length < 2) return cands;
   const me = sig(card, card.width, card.height);
-  const top = cands.slice(0, 30);
+  const top = cands.slice(0, 25);
   await Promise.all(top.map(async c => { c.sim = 0; if (!c.image) return;
     try { c.sim = simOf(me, await imgSig(c.image + '/low.webp')); } catch (e) {} }));
-  return top.map(c => ({...c, total: (c.score || 0) + 4 * c.sim})).sort((a, b) => b.total - a.total).concat(cands.slice(30));
+  return top.map(c => ({...c, total: (c.score || 0) * .6 + 4 * c.sim + 5 * (c.vis || 0) + (c.named ? 1.5 : 0)})).sort((a, b) => b.total - a.total).concat(cands.slice(25));
 }
 let NAMES = null;
 async function pokemonNames() {
@@ -472,10 +532,64 @@ async function matchPokemon(words) {
 }
 function cardFromFile(file) {
   return createImageBitmap(file).then(img => {
-    const s = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const s = Math.min(1, 3000 / Math.max(img.width, img.height));
     const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s;
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c;
   });
+}
+// Karte im Foto finden (Karte hat viel Detail, Tisch/Hintergrund wenig) und gerade auf 1260×1760 ausschneiden
+function findCard(src) {
+  const W = 240, H = Math.round(src.height * W / src.width), c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.drawImage(src, 0, 0, W, H);
+  const d = g.getImageData(0, 0, W, H).data, gr = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) gr[i] = d[i * 4] * .3 + d[i * 4 + 1] * .59 + d[i * 4 + 2] * .11;
+  const B = 6, cw = Math.floor(W / B), ch = Math.floor(H / B), e = new Float32Array(cw * ch);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const gx = gr[y * W + x + 1] - gr[y * W + x - 1], gy = gr[(y + 1) * W + x] - gr[(y - 1) * W + x];
+    const cx = Math.floor(x / B), cy = Math.floor(y / B); if (cx < cw && cy < ch) e[cy * cw + cx] += Math.abs(gx) + Math.abs(gy);
+  }
+  const sorted = [...e].sort((a, b) => a - b), med = sorted[Math.floor(sorted.length * .5)], hi = sorted[Math.floor(sorted.length * .9)];
+  const th = Math.max(med * 2.2, (med + hi) / 2.5);
+  const on = e.map(v => v > th ? 1 : 0), lab = new Int32Array(cw * ch);
+  let best = null, id = 0;
+  for (let i = 0; i < on.length; i++) if (on[i] && !lab[i]) {   // größte zusammenhängende Fläche
+    id++; const st = [i]; lab[i] = id; let n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    while (st.length) { const k = st.pop(), x = k % cw, y = (k / cw) | 0; n++;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const nx = x + dx, ny = y + dy, nk = ny * cw + nx;
+        if (nx >= 0 && ny >= 0 && nx < cw && ny < ch && on[nk] && !lab[nk]) { lab[nk] = id; st.push(nk); } } }
+    if (!best || n > best.n) best = {n, x0, y0, x1, y1};
+  }
+  const sx = src.width / W, sy = src.height / H;
+  let bx = 0, by = 0, bw = src.width, bh = src.height;
+  if (best && best.n > 12) {
+    bx = best.x0 * B * sx; by = best.y0 * B * sy; bw = (best.x1 - best.x0 + 1) * B * sx; bh = (best.y1 - best.y0 + 1) * B * sy;
+    if (bw * bh > src.width * src.height * .7) { bx = 0; by = 0; bw = src.width; bh = src.height; }   // Karte füllt schon das Bild
+    else {   // Kanten der Karte genau suchen: stärkste gerade Kante nahe jeder Seite
+      const r = refineEdges(gr, W, H, bx / sx, by / sy, bw / sx, bh / sy);
+      bx = r.x * sx; by = r.y * sy; bw = r.w * sx; bh = r.h * sy;
+    }
+  }
+  const out = document.createElement('canvas'); out.width = 1260; out.height = 1760;
+  const o = out.getContext('2d'); o.fillStyle = '#888'; o.fillRect(0, 0, 1260, 1760);
+  o.drawImage(src, bx, by, bw, bh, 0, 0, 1260, 1760);
+  return out;
+}
+function refineEdges(gr, W, H, x, y, w, h) {
+  const at = (X, Y) => gr[Math.max(0, Math.min(H - 1, Y)) * W + Math.max(0, Math.min(W - 1, X))];
+  // äußerste deutliche Kante (Kartenrand/Hülle), nicht die stärkste Kante im Bild
+  const best = (from, to, f, outerIsLow) => { const a = []; for (let i = Math.round(from); i <= Math.round(to); i++) a.push([i, f(i)]);
+    const mx = Math.max(...a.map(q => q[1])); const ok = a.filter(q => q[1] >= mx * .55); return (outerIsLow ? ok[0] : ok[ok.length - 1])[0]; };
+  const colE = X => { let s = 0; for (let Y = Math.round(y + h * .2); Y < y + h * .8; Y++) s += Math.abs(at(X + 1, Y) - at(X - 1, Y)); return s; };
+  const rowE = Y => { let s = 0; for (let X = Math.round(x + w * .2); X < x + w * .8; X++) s += Math.abs(at(X, Y + 1) - at(X, Y - 1)); return s; };
+  const L = best(Math.max(1, x - w * .12), x + w * .2, colE, true), R = best(x + w * .8, Math.min(W - 2, x + w * 1.12), colE, false);
+  const T = best(Math.max(1, y - h * .12), y + h * .2, rowE, true), B = best(y + h * .8, Math.min(H - 2, y + h * 1.12), rowE, false);
+  let nw = R - L, nh = B - T;
+  if (nw < w * .5 || nh < h * .5) return {x, y, w, h};
+  const r = nw / nh;   // Seitenverhältnis prüfen, sonst die unsichere Seite aus dem Format ableiten
+  if (Math.abs(r - 63 / 88) > .08) { if (r > 63 / 88) nh = nw * 88 / 63; else nw = nh * 63 / 88; }
+  return {x: L, y: T, w: nw, h: nh};
 }
 function numbers(text, totals) {
   const out = [];
@@ -553,24 +667,30 @@ async function recognize(card) {
   if (busy) return; busy = true;
   $('#shoot').innerHTML = '<span class="spin" style="border-top-color:#333;border-color:#0002"></span>';
   try {
+    card = findCard(card);
     state.photo = card.toDataURL('image/jpeg', .75);
+    // 1. Bild mit der ganzen Datenbank vergleichen (sofort)
+    let vis = visualSearch(cardSig(card), 40);
+    // 2. Text: Name (+ Sprache), Nummer nur wenn das Bild nicht eindeutig ist
     status('Lese Namen …');
     const {name, lang} = await readName(card); guess = lang;
-    // Kandidaten zum Namen + Datenbank-Bilder laden, während die Nummer gelesen wird
+    if (lang) vis = vis.map(c => ({...c, lang: (VX.meta.cards.find(x => x[0] === c.id) || [, , , , 'en'])[4].split(',').includes(lang) ? lang : c.lang}));
+    const sure = vis.length > 1 && vis[0].vis > .55 && vis[0].vis - vis[1].vis > .08;
     const byNameP = name ? findSmart(name, []).catch(() => []) : Promise.resolve([]);
-    status('Lese Nummer …');
-    const [numText, totals] = await Promise.all([readNumber(card, !!name), knownTotals()]);
-    const nums = numbers(numText, totals).filter(([n, t]) => totals.has(+t));
-    let cands = name ? rankByRead(await byNameP, nums) : [];
-    if (!cands.length && nums.length) {   // kein Name lesbar -> über Nummer + Set-Größe
+    let numText = '', totals = new Set();
+    if (!sure) { status('Lese Nummer …'); [numText, totals] = await Promise.all([readNumber(card, !!name || vis.length > 0), knownTotals()]); }
+    const nums = numText ? numbers(numText, totals).filter(([n, t]) => totals.has(+t)) : [];
+    const named = await byNameP, nameIds = new Set(named.map(c => c.id));
+    let cands = merge([vis, named]).map(c => ({...c, named: nameIds.has(c.id)}));
+    if (!cands.length && nums.length) {   // nichts gefunden -> über Nummer + Set-Größe
       for (const [n, t] of nums.slice(0, 3)) { const c = await findNumber(n, t, ''); if (c.length) { cands = c; nums.unshift([n, t]); break; } }
     }
+    cands = rankByRead(await enrich(cands), nums);
     status('Vergleiche Bild …');
-    cands = await rankByImage(cands, card);
+    cands = await rankByImage(cands.sort((a, b) => (b.vis || 0) + (b.named ? .3 : 0) + b.score * .1 - ((a.vis || 0) + (a.named ? .3 : 0) + a.score * .1)), card);
     status('');
     $('#qName').value = name; $('#qNum').value = nums[0] ? nums[0].join('/') : '';
-    state.read = `Gelesen: ${nums[0] ? 'Nr. ' + nums[0].join('/') : 'keine Nummer'}${name ? ' · „' + name + '“' : ''}`
-      + (!nums[0] && cands.length > 1 ? ' · nach Bild gewählt, bitte prüfen' : '');
+    state.read = `Gelesen: ${nums[0] ? 'Nr. ' + nums[0].join('/') : sure ? 'per Bild erkannt' : 'keine Nummer'}${name ? ' · „' + name + '“' : ''}`;
     await show(cands);
   } catch (err) { status('Fehler: ' + err.message); }
   $('#shoot').innerHTML = ''; busy = false;
@@ -621,7 +741,10 @@ function closeOnly(id) { $(id).hidden = true; }
 async function pick(id) {
   const lg = (state.cands.find(k => k.id === id) || {}).lang || S.lang;
   $('#res').innerHTML = '<p class="sub"><span class="spin"></span> Hole Preise …</p>';
-  try { state.card = await api(`/${lg}/cards/${id}`, 6 * 36e5); state.cur = id; state.cardLang = lg; }
+  try { let d = await api(`/${lg}/cards/${id}`, 6 * 36e5), l = lg;
+    if (!d) for (const x of ['en', 'de', 'fr', 'it', 'es', 'pt']) { d = await api(`/${x}/cards/${id}`, 6 * 36e5).catch(() => null); if (d) { l = x; break; } }
+    if (!d) throw new Error('Karte nicht in der Datenbank');
+    state.card = d; state.cur = id; state.cardLang = l; }
   catch (e) { $('#res').innerHTML = `<p class="warn">Fehler: ${esc(e.message)}</p>`; return; }
   state.better = false; state.cond = 'NM';
   render();
@@ -754,7 +877,8 @@ drawTargets();
 go('vScan');
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // beim Start schon vorladen -> erster Scan schneller
-setTimeout(() => { getWorker().then(() => status('')).catch(() => {}); pokemonNames(); knownTotals().catch(() => {}); }, 600);
+setTimeout(() => { loadIndex(); getWorker().then(() => status('')).catch(() => {}); pokemonNames(); knownTotals().catch(() => {}); }, 600);
+$('#vxUpd').onclick = () => { vxInfo('suche …'); loadIndex(true); };
 </script>
 </body>
 </html>
