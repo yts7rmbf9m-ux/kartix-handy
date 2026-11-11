@@ -183,7 +183,7 @@ h1 span{color:var(--accent)}
 .kpi.wide{grid-column:1/-1}
 .sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:16px 2px 8px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-.item{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line)}
+.item{cursor:pointer;display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line)}
 .item:last-child{border:0}
 .item img,.item .ph{width:44px;aspect-ratio:63/88;object-fit:cover;border-radius:5px;background:var(--panel2)}
 .item .t{min-width:0}.item .t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -819,7 +819,7 @@ const langOf = l => LANGS.find(x => x[0] === l) || LANGS[0];
 const nrOf = c => `#${esc(c.localId)}`;
 // ---- Schritt 1: Wähl deine Karte (Top-Treffer + andere) ----
 async function show(cands) {
-  state.cands = cands; state.better = false; state.cond = 'NM'; state.card = null; state.addTo = null;
+  state.cands = cands; state.better = false; state.cond = 'NM'; state.card = null; state.addTo = null; state.editId = null;
   stopCam(); closeOnly('#searchSheet'); openSheet('#resSheet');
   if (!cands.length) { $('#resHead').className = ''; $('#resHead').innerHTML = 'Nicht erkannt';
     $('#res').innerHTML = `<p class="sub">${esc(state.read || '')}</p><p class="warn">Keine Karte gefunden. Karte gerade und ganz im Rahmen fotografieren oder manuell suchen.</p>
@@ -863,15 +863,16 @@ async function pick(id) {
   try { let d = await api(`/${lg}/cards/${id}`, 6 * 36e5), l = lg;
     if (!d) for (const x of ['en', 'de', 'fr', 'it', 'es', 'pt']) { d = await api(`/${x}/cards/${id}`, 6 * 36e5).catch(() => null); if (d) { l = x; break; } }
     if (!d) throw new Error('Karte nicht in der Datenbank');
-    state.card = d; state.cur = id; state.cardLang = l; }
+    state.card = d; state.cur = id; state.cardLang = l; state.dataLang = l; }
   catch (e) { $('#res').innerHTML = `<p class="warn">Fehler: ${esc(e.message)}</p>`; return; }
-  state.better = false; state.cond = 'NM';
+  state.better = false; state.cond = 'NM'; state.ed = 'unl'; state.manual = null;
   render();
 }
 // ---- Schritt 2: Details ----
 function render() {
   const c = state.card; if (!c) return;
-  const m = marketOf(c, state.better), f = (COND.find(x => x[0] === state.cond) || COND[0])[2], val = m.value * f, q = quote();
+  const m = marketOf(c, state.better), f = (COND.find(x => x[0] === state.cond) || COND[0])[2], q = quote();
+  const first = !!(c.variants && c.variants.firstEdition), val = state.manual != null ? state.manual : m.value * f;
   $('#resHead').className = 'row'; $('#resHead').innerHTML = `<span class="okchip">✓ Erkannt</span>${state.cands.length > 1 ? '<button class="ghost" id="wrong">Falsche Karte?</button>' : ''}`;
   $('#res').innerHTML = `
     <div class="detail">
@@ -879,24 +880,37 @@ function render() {
       <div class="kick" style="text-align:center">${esc(c.set?.name || '')} · #${esc(c.localId)}${c.set?.cardCount?.official ? '/' + c.set.cardCount.official : ''}</div>
       <div class="name" style="text-align:center;font-size:26px">${esc(c.name)}</div>
       <div class="pills center">${LANGS.map(l => `<button data-lg="${l[0]}" class="${state.cardLang === l[0] ? 'on' : ''}">${l[1]} ${l[0].toUpperCase()}</button>`).join('')}</div>
+      ${state.cardLang !== state.dataLang ? `<p class="sub" style="text-align:center;font-size:12px">Für ${langOf(state.cardLang)[2]} gibt es in der Datenbank keine eigenen Daten – Bild und Preis stammen von der ${langOf(state.dataLang)[2].toLowerCase()}en Ausgabe.</p>` : ''}
+      ${first ? `<div class="kick" style="margin:16px 4px 8px">Auflage</div><div class="pills">
+        <button data-ed="unl" class="${state.ed === '1st' ? '' : 'on'}">Unlimited</button><button data-ed="1st" class="${state.ed === '1st' ? 'on' : ''}">1. Auflage</button></div>` : ''}
       <div class="kick" style="margin:16px 4px 8px">Zustand</div>
       <div class="pills">${COND.map(x => `<button data-cond="${x[0]}" class="${x[0] === state.cond ? 'on' : ''}"><b>${x[0]}</b> ${x[1]}</button>`).join('')}</div>
       ${m.two ? `<div class="kick" style="margin:14px 4px 8px">Version</div><div class="pills">
         <button data-better="0" class="${state.better ? '' : 'on'}">Standard <b>${eur(marketOf(c, false).value)}</b></button><button data-better="1" class="${state.better ? 'on' : ''}">Holo / Reverse <b>${eur(marketOf(c, true).value)}</b></button></div>` : ''}
-      ${m.value ? `<div class="valbox"><div class="kick">Marktwert${f < 1 ? ` · ${state.cond} ${Math.round(f * 100)} %` : ''}</div><b>${eur(val)}</b>
+      ${state.ed === '1st' ? `<p class="sub" style="font-size:12px;margin-top:10px">Cardmarket-Preise unterscheiden hier nicht nach Auflage – für die 1. Auflage kannst du unten deinen eigenen Preis eintragen.</p>` : ''}
+      ${m.value || state.ed === '1st' ? `<div class="valbox"><div class="kick">${state.manual != null ? 'Eigener Preis' : 'Marktwert'}${f < 1 && state.manual == null ? ` · ${state.cond} ${Math.round(f * 100)} %` : ''}</div><b>${eur(val)}</b>
           <small>Trend ${eur(m.trend)} · Ø 30 T. ${eur(m.avg30)} · ab ${eur(m.low)}${m.updated ? ` · Stand ${m.updated.split('-').reverse().join('.')}` : ''}</small></div>
         <div class="valbox buy trader"><div class="kick">Ankauf ${Math.round(q * 100)} %</div><b>${eur(val * q)}</b></div>`
         : '<p class="warn">Für diese Karte gibt es keinen Cardmarket-Preis.</p>'}
+      <label class="field" style="margin-top:12px">Eigener Preis (optional)<input id="manual" inputmode="decimal" placeholder="z. B. 12,50" value="${state.manual != null ? String(state.manual).replace('.', ',') : ''}"></label>
       <div style="height:84px"></div>
     </div>
-    <div class="actbar"><button id="again">Schließen</button><button class="primary" id="add">+ Hinzufügen</button></div>`;
+    ${state.editId ? '<button id="remove" style="width:100%;margin-top:4px;color:var(--bad)">Aus der Liste entfernen</button><div style="height:84px"></div>' : ''}
+    <div class="actbar"><button id="again">Schließen</button><button class="primary" id="add">${state.editId ? 'Speichern' : '+ Hinzufügen'}</button></div>`;
   if ($('#wrong')) $('#wrong').onclick = picker;
   $$('#res [data-lg]').forEach(b => b.onclick = () => switchLang(b.dataset.lg));
   $$('#res [data-cond]').forEach(b => b.onclick = () => { state.cond = b.dataset.cond; render(); });
   $$('#res [data-better]').forEach(b => b.onclick = () => { state.better = b.dataset.better === '1'; render(); });
+  $$('#res [data-ed]').forEach(b => b.onclick = () => { state.ed = b.dataset.ed; render(); });
+  $('#manual').onchange = e => { const v = parseFloat(e.target.value.replace(',', '.')); state.manual = isFinite(v) && v >= 0 && e.target.value.trim() ? v : null; render(); };
+  if ($('#remove')) $('#remove').onclick = () => { items = items.filter(i => i.id !== state.editId); save(); afterChange(); closeSheets(); status('Entfernt'); };
   $('#add').onclick = () => {
+    if (state.editId) { const it = items.find(i => i.id === state.editId);
+      if (it) Object.assign(it, {cardId: c.id, lang: state.cardLang, name: c.name, set: c.set?.name || '', nr: c.localId, img: c.image ? c.image + '/low.webp' : it.img,
+        cond: state.cond, better: state.better, ed: state.ed === '1st' ? '1st' : '', value: val, manual: state.manual != null});
+      save(); afterChange(); closeSheets(); status(`${c.name} gespeichert · ${eur(val)}`); return; }
     items.unshift({id: Date.now().toString(36), cardId: c.id, lang: state.cardLang, name: c.name, set: c.set?.name || '', nr: c.localId,
-      img: c.image ? c.image + '/low.webp' : '', cond: state.cond, better: state.better, value: val, list: state.addTo || S.target, ts: Date.now()});
+      img: c.image ? c.image + '/low.webp' : '', cond: state.cond, better: state.better, ed: state.ed === '1st' ? '1st' : '', value: val, manual: state.manual != null, list: state.addTo || S.target, ts: Date.now()});
     if (['de', 'en'].includes(state.cardLang)) { S.lang = state.cardLang; store.set('lang', S.lang); }
     save(); if (!$('#setView').hidden) drawSet(); $('#add').disabled = true; $('#add').textContent = `✓ in „${state.addTo || S.target}“`;
     setTimeout(() => { closeSheets(); status(`${c.name} gespeichert · ${eur(val)}`); }, 500);
@@ -904,12 +918,13 @@ function render() {
   $('#again').onclick = closeSheets;
 }
 $('#resClose').onclick = closeSheets;
+function afterChange() { if (!$('#setView').hidden) drawSet(); else if (!$('#vColl').hidden) { $('#segLists').hidden ? drawMySets() : drawColl(); } else if (!$('#vDash').hidden) drawDash(); }
 // gleiche Karte in einer anderen Sprache
 async function switchLang(lg) {
   if (lg === state.cardLang) return;
   const d = await api(`/${lg}/cards/${state.cur}`, 6 * 36e5).catch(() => null);
-  if (!d) { status(`Diese Karte gibt es nicht auf ${langOf(lg)[2]}.`); return; }
-  state.card = d; state.cardLang = lg; render();
+  if (d) { state.card = d; state.dataLang = lg; }   // ohne eigene Daten: Sprache trotzdem merken, Bild/Preis bleiben
+  state.cardLang = lg; render();
 }
 async function manual() {
   const name = $('#qName').value.trim(), nr = $('#qNum').value.trim(), m = nr.match(/(\d{1,3})\s*\/\s*(\d{2,3})/);
@@ -928,9 +943,22 @@ $('#qGo').onclick = manual;
 
 // ============ Dashboard & Sammlung ============
 const sum = arr => arr.reduce((a, x) => a + (+x.value || 0), 0);
+// Bild aus der Bild-Datenbank (englisch), wenn eine Sprache kein eigenes Bild hat
+function imgFor(cardId) { const c = VX.meta && VX.meta.cards.find(x => x[0] === cardId); return c ? 'https://assets.tcgdex.net/' + c[1] + '/low.webp' : ''; }
+document.addEventListener('error', e => { const t = e.target;
+  if (t.tagName === 'IMG' && !t.dataset.fb && /assets\.tcgdex\.net\/(de|fr|it|es|pt)\//.test(t.src)) { t.dataset.fb = 1; t.src = t.src.replace(/\.net\/(de|fr|it|es|pt)\//, '.net/en/'); } }, true);
+// gespeicherte Karte öffnen und bearbeiten
+async function openItem(id) {
+  const x = items.find(i => i.id === id); if (!x) return;
+  state.cands = [{id: x.cardId, lang: x.lang}]; state.photo = ''; state.read = ''; state.addTo = x.list;
+  openSheet('#resSheet'); await pick(x.cardId);
+  Object.assign(state, {editId: x.id, cond: x.cond || 'NM', better: !!x.better, ed: x.ed === '1st' ? '1st' : 'unl', cardLang: x.lang || state.cardLang, manual: x.manual ? x.value : null});
+  render();
+}
 function itemHtml(x, del) {
-  return `<div class="item">${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : '<div class="ph"></div>'}
-    <div class="t"><b>${esc(x.name)}</b><small>${esc(x.set)} ${esc(x.nr)} · ${esc(x.cond)}${del ? '' : ' · ' + esc(x.list)}</small></div>
+  const im = x.img || imgFor(x.cardId);
+  return `<div class="item" data-open="${esc(x.id)}">${im ? `<img src="${esc(im)}" alt="" loading="lazy">` : '<div class="ph"></div>'}
+    <div class="t"><b>${esc(x.name)}</b><small>${esc(x.set)} ${esc(x.nr)} · ${esc(x.cond)}${x.ed ? ' · 1. Aufl.' : ''}${x.lang ? ' · ' + x.lang.toUpperCase() : ''}${del ? '' : ' · ' + esc(x.list)}</small></div>
     <div class="v">${eur(x.value)}<small class="trader">${eur(x.value * quote())}</small>
       ${del ? `<button class="x" data-del="${esc(x.id)}" aria-label="Entfernen" style="padding:2px;color:var(--bad)"><svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : ''}</div></div>`;
 }
@@ -940,6 +968,7 @@ function drawDash() {
     return `<div class="listrow" data-list="${esc(l)}"><span><b>${esc(l)}</b> <span class="sub">· ${it.length} Karten</span></span><span style="font-family:var(--num)">${eur(sum(it))}</span></div>`; }).join('');
   $('#dRecent').innerHTML = items.slice(0, 8).map(x => itemHtml(x, false)).join('') || '<div class="empty">Noch nichts gescannt.</div>';
   $$('#dLists .listrow').forEach(r => r.onclick = () => { S.view = r.dataset.list; go('vColl'); });
+  $$('#dRecent [data-open]').forEach(r => r.onclick = () => openItem(r.dataset.open));
 }
 function drawColl() {
   const cur = S.view && S.lists.includes(S.view) ? S.view : S.lists[0]; S.view = cur;
@@ -948,7 +977,8 @@ function drawColl() {
   $('#cCount').textContent = it.length; $('#cValue').textContent = eur(sum(it)); $('#cBuy').textContent = eur(sum(it) * quote());
   $('#cItems').innerHTML = it.map(x => itemHtml(x, true)).join('') || '<div class="empty">Diese Liste ist leer. Im Scanner oben links die Liste wählen und scannen.</div>';
   $$('#cChips button').forEach(b => b.onclick = () => { S.view = b.dataset.l; drawColl(); });
-  $$('#cItems [data-del]').forEach(b => b.onclick = () => { items = items.filter(x => x.id !== b.dataset.del); save(); drawColl(); });
+  $$('#cItems [data-del]').forEach(b => b.onclick = e => { e.stopPropagation(); items = items.filter(x => x.id !== b.dataset.del); save(); drawColl(); });
+  $$('#cItems [data-open]').forEach(r => r.onclick = () => openItem(r.dataset.open));
 }
 let armed = '';
 function confirmBtn(btn, key, label, fn) {
@@ -1064,7 +1094,7 @@ function drawSet() {
   $('#setGrid').innerHTML = list.map(c => { const o = om[c.id], it = o && o[0];
     return `<button class="tile ${o ? 'own' : 'miss'} ${CUR.sel.has(c.id) ? 'sel' : ''}" data-id="${esc(c.id)}"><span class="ti">
       <img src="${esc(it && it.img ? it.img : c.img + '/low.webp')}" alt="${esc(c.name)}" loading="lazy">
-      ${o ? `<span class="badge"><i></i>${FLAG[it.lang] || ''} · ${esc(it.cond)}${o.length > 1 ? ' · ' + o.length + '×' : ''}</span>` : ''}${CUR.multi && !o ? '<span class="chk">✓</span>' : ''}</span>
+      ${o ? `<span class="badge"><i></i>${FLAG[it.lang] || ''} · ${esc(it.cond)}${it.ed ? ' · 1.Ed' : ''}${o.length > 1 ? ' · ' + o.length + '×' : ''}</span>` : ''}${CUR.multi && !o ? '<span class="chk">✓</span>' : ''}</span>
       <span class="tm"><b>#${esc(c.nr)}</b><span data-pr="${esc(c.id)}">${PRICE[c.id] != null ? (PRICE[c.id] ? eur(PRICE[c.id]) : '–') : ''}</span></span></button>`; }).join('')
     || '<div class="empty" style="grid-column:1/-1">Keine Karten.</div>';
   $$('#setChips [data-f]').forEach(b => b.onclick = () => { CUR.filter = b.dataset.f; drawSet(); });
@@ -1088,6 +1118,8 @@ function tileTap(id, el) {
   const om = ownedMap();
   if (CUR.multi && !om[id]) { CUR.sel.has(id) ? CUR.sel.delete(id) : CUR.sel.add(id); el.classList.toggle('sel'); $('#multiN').textContent = `${CUR.sel.size} gewählt`; return; }
   const c = CUR.cards.find(x => x.id === id), o = om[id];
+  if (o) { openItem(o[0].id); return; }
+  state.editId = null;
   state.cands = [{id, lang: o ? o[0].lang : (S.lang === 'en' ? 'en' : 'de'), name: c.name, localId: c.nr, image: c.img}];
   state.photo = ''; state.read = ''; state.better = false; state.cond = 'NM'; state.addTo = ownList();
   openSheet('#resSheet'); pick(id);
