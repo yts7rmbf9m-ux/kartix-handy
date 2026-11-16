@@ -490,6 +490,11 @@ async function loadIndex(force) {
   try {
     const cache = await caches.open('kx-index');
     let jr = await cache.match('vindex.json'), br = await cache.match('vindex.bin');
+    if (jr && br && !force && navigator.onLine !== false) {   // bei jedem Start kurz prüfen, ob es eine neue Datenbank gibt (nur Kopfzeilen)
+      try { const h = await fetch('vindex.json', {method: 'HEAD', cache: 'no-store'});
+        const tag = h.ok ? (h.headers.get('etag') || h.headers.get('last-modified') || '') : '';
+        if (tag && tag !== store.get('vxTag', '')) force = true; } catch (e) {}
+    }
     if (!jr || !br || force || Date.now() - (+store.get('vxCheck', 0)) > 864e5) {
       const fresh = await fetchIdx('vindex.json');
       if (fresh) {
@@ -499,11 +504,11 @@ async function loadIndex(force) {
           const b = await fetchIdx('vindex.bin');
           if (b) { await cache.put('vindex.json', fresh.clone()); await cache.put('vindex.bin', b.clone()); jr = fresh; br = b; }
         }
-        store.set('vxCheck', Date.now());
+        store.set('vxCheck', Date.now()); store.set('vxTag', fresh.headers.get('etag') || fresh.headers.get('last-modified') || '');
       }
     }
     if (!jr || !br) { vxInfo('noch keine Bild-Datenbank – Erkennung nur über Text'); return false; }
-    VX.meta = await jr.json(); VX.sig = new Int8Array(await br.arrayBuffer());
+    VX.meta = await jr.json(); VX.sig = new Int8Array(await br.arrayBuffer()); SETS = null; SETCARDS = null;
     vxInfo(`kennt ${VX.meta.n.toLocaleString('de-AT')} Karten · Stand ${VX.meta.date.split('-').reverse().join('.')}`);
     return true;
   } catch (e) { vxInfo('Bild-Datenbank nicht verfügbar'); return false; }
